@@ -1,0 +1,22 @@
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Dependências
+node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Uploads de usuário (dados, não código)
+uploads/*
+!uploads/.gitkeep
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
