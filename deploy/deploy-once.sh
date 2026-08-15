@@ -100,7 +100,7 @@ publicar_backend() {
 
     (
       cd "$TEMPORARIO"
-      npm ci
+      npm ci --no-audit --no-fund --prefer-offline
       npm test
       guardar_backup_banco
       set -a
@@ -108,7 +108,7 @@ publicar_backend() {
       source "$BASE/shared/backend.env"
       set +a
       NODE_ENV=production npx sequelize-cli db:migrate
-      npm prune --omit=dev
+      npm prune --omit=dev --no-audit --no-fund
     )
 
     mv "$TEMPORARIO" "$release"
@@ -139,7 +139,7 @@ publicar_frontend() {
     git clone --quiet --depth 1 --branch main "$WEB_REPOSITORIO" "$TEMPORARIO"
     (
       cd "$TEMPORARIO"
-      npm ci
+      npm ci --no-audit --no-fund --prefer-offline
       npm run lint
       VITE_API_URL=/api npm run build
     )
