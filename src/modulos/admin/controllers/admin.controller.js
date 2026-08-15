@@ -7,6 +7,9 @@ function dtoModulo(modulo) {
     corDestaque: modulo.cor_destaque,
     ordem: modulo.ordem,
     cargosAlvo: modulo.cargos_alvo,
+    agenciaId: modulo.agencia_id,
+    agenciaNome: modulo.agencia?.nome || null,
+    trilhaIds: (modulo.trilhas || []).map((trilha) => trilha.id),
     aulas: (modulo.aulas || []).map(dtoAula),
   };
 }
@@ -17,10 +20,34 @@ function dtoAula(aula) {
     moduloId: aula.modulo_id,
     titulo: aula.titulo,
     youtubeIframeUrl: aula.youtube_iframe_url,
+    tipoConteudo: aula.tipo_conteudo,
+    provedorExterno: aula.provedor_externo,
+    urlExterna: aula.url_externa,
+    idExterno: aula.id_externo,
+    duracaoVideoSegundos: aula.duracao_video_segundos,
+    duracaoVideoFonte: aula.duracao_video_fonte,
     resumoTexto: aula.resumo_texto,
     ordem: aula.ordem,
+    transcricaoTexto: aula.transcricao_texto,
+    transcricaoGeradaEm: aula.transcricao_gerada_em,
     questoes: (aula.questoes || []).map(dtoQuestao),
     discursivas: (aula.discursivas || []).map(dtoDiscursiva),
+    anexos: (aula.anexos || []).map(dtoAnexo),
+  };
+}
+
+function dtoAnexo(anexo) {
+  return {
+    id: anexo.id,
+    aulaId: anexo.aula_id,
+    nomeOriginal: anexo.nome_original,
+    nomeExibicao: anexo.nome_exibicao,
+    caminhoArquivo: anexo.caminho_arquivo,
+    urlExterna: anexo.url_externa,
+    mimeType: anexo.mime_type,
+    tamanhoBytes: anexo.tamanho_bytes ? Number(anexo.tamanho_bytes) : null,
+    origem: anexo.origem,
+    ordem: anexo.ordem,
   };
 }
 
@@ -38,6 +65,7 @@ function dtoQuestao(questao) {
   return {
     id: questao.id,
     aulaId: questao.aula_id,
+    moduloId: questao.modulo_id,
     enunciado: questao.enunciado,
     alternativaA: questao.alternativa_a,
     alternativaB: questao.alternativa_b,
@@ -46,6 +74,7 @@ function dtoQuestao(questao) {
     alternativaE: questao.alternativa_e,
     alternativaCorreta: questao.alternativa_correta,
     justificativaErro: questao.justificativa_erro,
+    origem: questao.origem,
   };
 }
 
@@ -60,15 +89,16 @@ async function listarConteudo(requisicao, resposta, proximo) {
 
 async function criarModulo(requisicao, resposta, proximo) {
   try {
-    const { titulo, corDestaque, ordem, cargosAlvo } = requisicao.body || {};
+    const { titulo, corDestaque, ordem, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
     if (!titulo) return resposta.status(400).json({ erro: "Título é obrigatório" });
 
     const modulo = await adminService.criarModulo({
       titulo,
+      agencia_id: agenciaId || undefined,
       cor_destaque: corDestaque || "#F3C623",
       ordem: ordem ?? 0,
       cargos_alvo: Array.isArray(cargosAlvo) ? cargosAlvo : [],
-    });
+    }, Array.isArray(trilhaIds) ? trilhaIds.map(Number) : []);
     resposta.status(201).json({ modulo: dtoModulo(modulo) });
   } catch (erro) {
     proximo(erro);
@@ -77,13 +107,14 @@ async function criarModulo(requisicao, resposta, proximo) {
 
 async function atualizarModulo(requisicao, resposta, proximo) {
   try {
-    const { titulo, corDestaque, ordem, cargosAlvo } = requisicao.body || {};
+    const { titulo, corDestaque, ordem, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
     const modulo = await adminService.atualizarModulo(requisicao.params.id, {
       ...(titulo !== undefined && { titulo }),
       ...(corDestaque !== undefined && { cor_destaque: corDestaque }),
       ...(ordem !== undefined && { ordem }),
       ...(cargosAlvo !== undefined && { cargos_alvo: Array.isArray(cargosAlvo) ? cargosAlvo : [] }),
-    });
+      ...(agenciaId !== undefined && { agencia_id: agenciaId }),
+    }, trilhaIds === undefined ? undefined : Array.isArray(trilhaIds) ? trilhaIds.map(Number) : []);
     resposta.json({ modulo: dtoModulo(modulo) });
   } catch (erro) {
     proximo(erro);
@@ -101,15 +132,33 @@ async function excluirModulo(requisicao, resposta, proximo) {
 
 async function criarAula(requisicao, resposta, proximo) {
   try {
-    const { moduloId, titulo, youtubeIframeUrl, resumoTexto, ordem } = requisicao.body || {};
-    if (!moduloId || !titulo || !youtubeIframeUrl) {
-      return resposta.status(400).json({ erro: "Módulo, título e URL do YouTube são obrigatórios" });
+    const {
+      moduloId,
+      titulo,
+      tipoConteudo = "youtube",
+      youtubeIframeUrl,
+      provedorExterno,
+      urlExterna,
+      idExterno,
+      duracaoVideoMinutos,
+      resumoTexto,
+      ordem,
+    } = requisicao.body || {};
+    if (!moduloId || !titulo) {
+      return resposta.status(400).json({ erro: "Módulo e título são obrigatórios" });
     }
 
     const aula = await adminService.criarAula({
       modulo_id: moduloId,
       titulo,
-      youtube_iframe_url: youtubeIframeUrl,
+      tipo_conteudo: tipoConteudo,
+      youtube_iframe_url: youtubeIframeUrl || null,
+      provedor_externo: provedorExterno || null,
+      url_externa: urlExterna || null,
+      id_externo: idExterno || null,
+      duracao_video_segundos: duracaoVideoMinutos ? Math.round(Number(duracaoVideoMinutos) * 60) : null,
+      duracao_video_fonte: duracaoVideoMinutos ? "admin" : null,
+      duracao_video_atualizada_em: duracaoVideoMinutos ? new Date() : null,
       resumo_texto: resumoTexto || "",
       ordem: ordem ?? 0,
     });
@@ -121,14 +170,60 @@ async function criarAula(requisicao, resposta, proximo) {
 
 async function atualizarAula(requisicao, resposta, proximo) {
   try {
-    const { titulo, youtubeIframeUrl, resumoTexto, ordem } = requisicao.body || {};
+    const {
+      titulo,
+      tipoConteudo,
+      youtubeIframeUrl,
+      provedorExterno,
+      urlExterna,
+      idExterno,
+      duracaoVideoMinutos,
+      resumoTexto,
+      ordem,
+    } = requisicao.body || {};
     const aula = await adminService.atualizarAula(requisicao.params.id, {
       ...(titulo !== undefined && { titulo }),
-      ...(youtubeIframeUrl !== undefined && { youtube_iframe_url: youtubeIframeUrl }),
+      ...(tipoConteudo !== undefined && { tipo_conteudo: tipoConteudo }),
+      ...(youtubeIframeUrl !== undefined && { youtube_iframe_url: youtubeIframeUrl || null }),
+      ...(provedorExterno !== undefined && { provedor_externo: provedorExterno || null }),
+      ...(urlExterna !== undefined && { url_externa: urlExterna || null }),
+      ...(idExterno !== undefined && { id_externo: idExterno || null }),
+      ...(duracaoVideoMinutos !== undefined && {
+        duracao_video_segundos: duracaoVideoMinutos ? Math.round(Number(duracaoVideoMinutos) * 60) : null,
+        duracao_video_fonte: duracaoVideoMinutos ? "admin" : null,
+        duracao_video_atualizada_em: duracaoVideoMinutos ? new Date() : null,
+      }),
       ...(resumoTexto !== undefined && { resumo_texto: resumoTexto }),
       ...(ordem !== undefined && { ordem }),
     });
     resposta.json({ aula: dtoAula(aula) });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+async function criarAnexoArquivo(requisicao, resposta, proximo) {
+  try {
+    const anexo = await adminService.criarAnexoArquivo(requisicao.params.id, requisicao.file, requisicao.body);
+    resposta.status(201).json({ anexo: dtoAnexo(anexo) });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+async function criarAnexoLink(requisicao, resposta, proximo) {
+  try {
+    const anexo = await adminService.criarAnexoLink(requisicao.params.id, requisicao.body || {});
+    resposta.status(201).json({ anexo: dtoAnexo(anexo) });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+async function excluirAnexo(requisicao, resposta, proximo) {
+  try {
+    await adminService.excluirAnexo(requisicao.params.id);
+    resposta.status(204).send();
   } catch (erro) {
     proximo(erro);
   }
@@ -261,18 +356,53 @@ async function excluirDiscursiva(requisicao, resposta, proximo) {
   }
 }
 
+async function gerarVariacoesComIa(requisicao, resposta, proximo) {
+  try {
+    const quantidade = Math.min(Number(requisicao.body?.quantidade) || 2, 5);
+    const questoes = await adminService.gerarVariacoesComIa(requisicao.params.id, quantidade);
+    resposta.status(201).json({ questoes: questoes.map(dtoQuestao) });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+async function listarRelatoriosErro(requisicao, resposta, proximo) {
+  try {
+    const relatorios = await adminService.listarRelatoriosErro();
+    resposta.json({ relatorios });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+async function atualizarStatusRelatorioErro(requisicao, resposta, proximo) {
+  try {
+    const { status } = requisicao.body || {};
+    const relatorio = await adminService.atualizarStatusRelatorioErro(requisicao.params.id, status);
+    resposta.json({ id: relatorio.id, status: relatorio.status });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
 module.exports = {
   listarConteudo,
+  listarRelatoriosErro,
+  atualizarStatusRelatorioErro,
   criarModulo,
   atualizarModulo,
   excluirModulo,
   criarAula,
   atualizarAula,
   excluirAula,
+  criarAnexoArquivo,
+  criarAnexoLink,
+  excluirAnexo,
   criarQuestao,
   atualizarQuestao,
   excluirQuestao,
   criarDiscursiva,
   atualizarDiscursiva,
   excluirDiscursiva,
+  gerarVariacoesComIa,
 };

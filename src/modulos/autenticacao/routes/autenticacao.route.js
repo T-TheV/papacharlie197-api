@@ -8,6 +8,7 @@ const rotas = Router();
 
 rotas.post("/cadastro", limitadorAutenticacao, uploadFoto.single("foto"), autenticacaoController.cadastrar);
 rotas.post("/login", limitadorAutenticacao, autenticacaoController.entrar);
+rotas.post("/logout", autenticar, autenticacaoController.sair);
 rotas.get("/me", autenticar, autenticacaoController.perfil);
 rotas.patch("/me", autenticar, uploadFoto.single("foto"), autenticacaoController.atualizarPerfil);
 rotas.patch("/me/senha", autenticar, autenticacaoController.alterarSenha);

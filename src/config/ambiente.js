@@ -9,4 +9,8 @@ module.exports = {
   ambiente: process.env.NODE_ENV || "development",
   jwtSegredo: process.env.JWT_SEGREDO,
   jwtExpiracao: process.env.JWT_EXPIRACAO || "7d",
+  origensCors: (process.env.CORS_ORIGENS || "http://localhost:5173")
+    .split(",")
+    .map((origem) => origem.trim())
+    .filter(Boolean),
 };

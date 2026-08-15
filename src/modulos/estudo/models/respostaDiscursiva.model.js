@@ -9,6 +9,7 @@ const RespostaDiscursiva = sequelize.define(
     questao_discursiva_id: { type: DataTypes.INTEGER, allowNull: false },
     resposta_texto: { type: DataTypes.TEXT, allowNull: false },
     pontos_atendidos: { type: DataTypes.JSONB, allowNull: true },
+    pontos_incorretos: { type: DataTypes.JSONB, allowNull: true },
     pontos_faltando: { type: DataTypes.JSONB, allowNull: true },
     parecer: { type: DataTypes.TEXT, allowNull: true },
   },

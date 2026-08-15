@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="titulo descricao">
+  <title id="titulo">Engenharia de Software</title>
+  <desc id="descricao">Símbolo abstrato de código em tons de violeta</desc>
+  <defs>
+    <linearGradient id="fundo" x1="18" y1="12" x2="108" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6B43E5"/>
+      <stop offset="1" stop-color="#32157B"/>
+    </linearGradient>
+  </defs>
+  <rect x="5" y="5" width="118" height="118" rx="30" fill="url(#fundo)" stroke="#A990FF" stroke-width="4"/>
+  <path d="M49 38 25 64l24 26M79 38l24 26-24 26" fill="none" stroke="#FFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m71 31-16 66" fill="none" stroke="#C9BAFF" stroke-width="7" stroke-linecap="round"/>
+</svg>

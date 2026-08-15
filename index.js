@@ -7,5 +7,18 @@ app.start().catch((erro) => {
   process.exit(1);
 });
 
-process.on("SIGTERM", () => process.exit(0));
-process.on("SIGINT", () => process.exit(0));
+let encerrando = false;
+async function encerrar(sinal) {
+  if (encerrando) return;
+  encerrando = true;
+  try {
+    await app.stop();
+    process.exit(0);
+  } catch (erro) {
+    console.error(`Erro ao encerrar após ${sinal}:`, erro);
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => encerrar("SIGTERM"));
+process.on("SIGINT", () => encerrar("SIGINT"));
