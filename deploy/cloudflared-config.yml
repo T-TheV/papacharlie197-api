@@ -1,0 +1,7 @@
+tunnel: bd82436f-66f2-44a2-b9d6-76a6289a979b
+credentials-file: /root/.cloudflared/bd82436f-66f2-44a2-b9d6-76a6289a979b.json
+
+ingress:
+  - hostname: cadencia.yamasoftwares.app
+    service: http://127.0.0.1:8080
+  - service: http_status:404
