@@ -6,6 +6,9 @@
 http://:8080 {
   bind 127.0.0.1
 
+  @inseguro header X-Forwarded-Proto http
+  redir @inseguro https://{host}{uri} permanent
+
   encode zstd gzip
 
   @backend path /api/* /uploads/* /assets/agencias/*
