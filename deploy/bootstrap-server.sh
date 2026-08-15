@@ -36,7 +36,7 @@ if [[ ! -s "$ENV_FILE" ]]; then
     'JWT_EXPIRACAO=7d' \
     'CORS_ORIGENS=https://cadencia.yamasoftwares.app' \
     'GEMINI_API_KEY=' \
-    'GEMINI_MODELO=gemini-2.5-flash' \
+    'GEMINI_MODELO=gemini-3.6-flash' \
     > "$ENV_FILE"
   chmod 0600 "$ENV_FILE"
 fi
