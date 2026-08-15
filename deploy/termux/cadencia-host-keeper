@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+set -u
+
+TERMUX_HOME="/data/data/com.termux/files/home"
+TERMUX_PREFIX="/data/data/com.termux/files/usr"
+LOCK_FILE="$TERMUX_HOME/.termux/cadencia-host.lock"
+
+exec 9> "$LOCK_FILE"
+"$TERMUX_PREFIX/bin/flock" -n 9 || exit 0
+
+"$TERMUX_PREFIX/bin/termux-wake-lock"
+
+while true; do
+  "$TERMUX_PREFIX/bin/proot-distro" login ubuntu -- /opt/cadencia/bin/cadencia-keeper.sh
+  sleep 10
+done

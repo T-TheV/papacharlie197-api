@@ -1,0 +1,8 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+TERMUX_HOME="/data/data/com.termux/files/home"
+TERMUX_PREFIX="/data/data/com.termux/files/usr"
+
+"$TERMUX_PREFIX/bin/termux-wake-lock"
+nohup "$TERMUX_HOME/.termux/cadencia-host-keeper" \
+  >> "$TERMUX_HOME/.termux/cadencia-boot.log" 2>&1 &
