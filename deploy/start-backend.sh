@@ -21,4 +21,5 @@ source "$ARQUIVO_AMBIENTE"
 set +a
 
 cd "$DIRETORIO_ATUAL"
+printf '%s\n' "$$" > "/opt/cadencia/shared/backend.pid"
 exec /usr/local/bin/node index.js

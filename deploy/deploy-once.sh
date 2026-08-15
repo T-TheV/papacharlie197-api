@@ -43,6 +43,19 @@ aguardar_backend() {
   return 1
 }
 
+reiniciar_backend() {
+  local pid_file="$BASE/shared/backend.pid"
+  local pid=""
+
+  [[ -s "$pid_file" ]] || return 0
+  pid="$(tr -cd '0-9' < "$pid_file")"
+
+  if [[ -n "$pid" && -r "/proc/$pid/exe" ]] \
+    && [[ "$(readlink -f "/proc/$pid/exe")" == /opt/node-*/bin/node ]]; then
+    kill "$pid"
+  fi
+}
+
 guardar_backup_banco() {
   local env_file="$BASE/shared/backend.env"
   [[ -f "$env_file" ]] || return 0
@@ -103,13 +116,13 @@ publicar_backend() {
   fi
 
   ln -sfn "$release" "$BASE/releases/backend/current"
-  supervisorctl restart cadencia-backend >/dev/null
+  reiniciar_backend
 
   if ! aguardar_backend; then
     echo "O novo backend não respondeu ao health check; restaurando release anterior." >&2
     if [[ -n "$anterior" && -d "$anterior" ]]; then
       ln -sfn "$anterior" "$BASE/releases/backend/current"
-      supervisorctl restart cadencia-backend >/dev/null || true
+      reiniciar_backend || true
     fi
     return 1
   fi
