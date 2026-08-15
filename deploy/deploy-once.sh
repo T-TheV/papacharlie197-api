@@ -96,7 +96,12 @@ publicar_backend() {
     TEMPORARIO="$BASE/tmp/backend-$sha-$$"
     git clone --quiet --depth 1 --branch main "$API_REPOSITORIO" "$TEMPORARIO"
     ln -sfn "$BASE/shared/backend.env" "$TEMPORARIO/.env"
-    ln -sfn "$BASE/shared/uploads" "$TEMPORARIO/uploads"
+    if [[ "$TEMPORARIO" != "$BASE/tmp/backend-"* ]]; then
+      echo "Diretório temporário inesperado; vínculo de uploads cancelado." >&2
+      exit 1
+    fi
+    rm -rf -- "$TEMPORARIO/uploads"
+    ln -s "$BASE/shared/uploads" "$TEMPORARIO/uploads"
 
     (
       cd "$TEMPORARIO"
