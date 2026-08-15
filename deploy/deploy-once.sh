@@ -63,10 +63,13 @@ guardar_backup_banco() {
       --username="$DB_USER" \
       --file="$arquivo" \
       "$DB_NAME"
-    mapfile -t antigos < <(find "$BASE/shared/backups" -maxdepth 1 -type f -name 'cadencia-*.dump' -printf '%T@ %p\n' | sort -rn | tail -n +8 | cut -d' ' -f2-)
-    for antigo in "${antigos[@]}"; do
-      [[ "$antigo" == "$BASE/shared/backups/"* ]] && rm -f -- "$antigo"
-    done
+    find "$BASE/shared/backups" -maxdepth 1 -type f -name 'cadencia-*.dump' -printf '%T@ %p\n' \
+      | sort -rn \
+      | tail -n +8 \
+      | cut -d' ' -f2- \
+      | while IFS= read -r antigo; do
+          [[ "$antigo" == "$BASE/shared/backups/"* ]] && rm -f -- "$antigo"
+        done
   fi
 }
 
@@ -139,10 +142,13 @@ publicar_frontend() {
 limpar_releases_antigas() {
   local tipo="$1"
   local diretorio="$BASE/releases/$tipo"
-  mapfile -t antigos < <(find "$diretorio" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | tail -n +4 | cut -d' ' -f2-)
-  for antigo in "${antigos[@]}"; do
-    [[ "$antigo" == "$diretorio/"* ]] && rm -rf -- "$antigo"
-  done
+  find "$diretorio" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+    | sort -rn \
+    | tail -n +4 \
+    | cut -d' ' -f2- \
+    | while IFS= read -r antigo; do
+        [[ "$antigo" == "$diretorio/"* ]] && rm -rf -- "$antigo"
+      done
 }
 
 SHA_BACKEND="$(sha_remoto "$API_REPOSITORIO")"
