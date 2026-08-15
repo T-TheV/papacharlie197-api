@@ -10,4 +10,4 @@ if [[ ! -s "$TOKEN_FILE" ]]; then
   exit 1
 fi
 
-exec /usr/bin/cloudflared tunnel --no-autoupdate run --token "$(<"$TOKEN_FILE")"
+exec /usr/bin/cloudflared tunnel --no-autoupdate run --token-file "$TOKEN_FILE"
