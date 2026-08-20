@@ -373,8 +373,18 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
           properties: {
             transcricaoFormatada: { type: "string" },
             resumo: { type: "string" },
-            questoes: { type: "array", items: itemQuestao },
-            discursivas: { type: "array", items: itemDiscursiva },
+            questoes: {
+              type: "array",
+              items: itemQuestao,
+              minItems: quantidadeQuestoes,
+              maxItems: quantidadeQuestoes,
+            },
+            discursivas: {
+              type: "array",
+              items: itemDiscursiva,
+              minItems: quantidadeDiscursivas,
+              maxItems: quantidadeDiscursivas,
+            },
           },
           required: ["transcricaoFormatada", "resumo", "questoes", "discursivas"],
         },
@@ -415,7 +425,8 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
 
   const questoesValidas = Array.isArray(parseado.questoes)
     ? parseado.questoes.filter(
-        (q) => q && q.enunciado && q.a && q.b && q.c && q.d && ["a", "b", "c", "d", "e"].includes(q.alternativaCorreta),
+        (q) => q && q.enunciado && q.a && q.b && q.c && q.d && q.e
+          && ["a", "b", "c", "d", "e"].includes(q.alternativaCorreta),
       )
     : [];
 
@@ -425,6 +436,18 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
 
   if (!parseado.transcricaoFormatada || !parseado.resumo || questoesValidas.length === 0 || discursivasValidas.length === 0) {
     const erro = new Error("A IA não retornou transcrição, resumo, questões e discursivas válidas.");
+    erro.status = 502;
+    throw erro;
+  }
+
+  if (
+    questoesValidas.length !== quantidadeQuestoes
+    || discursivasValidas.length !== quantidadeDiscursivas
+  ) {
+    const erro = new Error(
+      `A IA retornou ${questoesValidas.length}/${quantidadeQuestoes} objetivas e `
+      + `${discursivasValidas.length}/${quantidadeDiscursivas} discursivas.`,
+    );
     erro.status = 502;
     throw erro;
   }
