@@ -1,0 +1,35 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+set -Eeuo pipefail
+
+TERMUX_HOME="/data/data/com.termux/files/home"
+TERMUX_PREFIX="/data/data/com.termux/files/usr"
+BASHRC="$TERMUX_HOME/.bashrc"
+MARCADOR="# Cadencia: iniciar servidor ao abrir o Termux"
+
+touch "$BASHRC"
+
+if ! "$TERMUX_PREFIX/bin/grep" -Fq "$MARCADOR" "$BASHRC"; then
+  printf '%s\n' \
+    '' \
+    "$MARCADOR" \
+    '"$HOME/.termux/boot/00-cadencia" >/dev/null 2>&1' \
+    >> "$BASHRC"
+fi
+
+"$TERMUX_PREFIX/bin/termux-job-scheduler" \
+  --cancel \
+  --job-id 197 \
+  >/dev/null 2>&1 || true
+
+"$TERMUX_PREFIX/bin/termux-job-scheduler" \
+  --script "$TERMUX_HOME/.termux/cadencia-watchdog" \
+  --job-id 197 \
+  --period-ms 900000 \
+  --network any \
+  --battery-not-low false \
+  --storage-not-low false \
+  --charging false \
+  --persisted true
+
+"$TERMUX_PREFIX/bin/termux-job-scheduler" --pending

@@ -1,0 +1,13 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+set -u
+
+TERMUX_HOME="/data/data/com.termux/files/home"
+TERMUX_PREFIX="/data/data/com.termux/files/usr"
+LOG_FILE="$TERMUX_HOME/.termux/cadencia-watchdog.log"
+
+"$TERMUX_PREFIX/bin/termux-wake-lock" || true
+
+nohup "$TERMUX_HOME/.termux/cadencia-host-keeper" \
+  >> "$LOG_FILE" 2>&1 &
+

@@ -13,5 +13,7 @@ exec 9> "$LOCK_FILE"
 
 while true; do
   "$TERMUX_PREFIX/bin/proot-distro" login ubuntu -- /opt/cadencia/bin/cadencia-keeper.sh
-  sleep 10
+  # Se o Android estiver sem recursos até para criar o processo de sleep,
+  # encerre em vez de entrar em loop apertado. O JobScheduler relança o keeper.
+  "$TERMUX_PREFIX/bin/sleep" 30 || exit 1
 done
