@@ -5,6 +5,7 @@ set -Eeuo pipefail
 BASE="/opt/cadencia"
 API_REPOSITORIO="https://github.com/T-TheV/papacharlie197-api.git"
 WEB_REPOSITORIO="https://github.com/T-TheV/papacharlie197-web.git"
+WEB_BRANCH="deploy"
 ESTADO_BACKEND="$BASE/shared/backend.sha"
 ESTADO_FRONTEND="$BASE/shared/frontend.sha"
 LOCK="$BASE/shared/deploy.lock"
@@ -26,7 +27,9 @@ limpar_temporario() {
 trap limpar_temporario EXIT
 
 sha_remoto() {
-  git ls-remote "$1" refs/heads/main | awk 'NR == 1 { print $1 }'
+  local repositorio="$1"
+  local branch="${2:-main}"
+  git ls-remote "$repositorio" "refs/heads/$branch" | awk 'NR == 1 { print $1 }'
 }
 
 sha_salvo() {
@@ -141,15 +144,15 @@ publicar_frontend() {
 
   if [[ ! -d "$release" ]]; then
     TEMPORARIO="$BASE/tmp/frontend-$sha-$$"
-    git clone --quiet --depth 1 --branch main "$WEB_REPOSITORIO" "$TEMPORARIO"
-    (
-      cd "$TEMPORARIO"
-      npm ci --no-audit --no-fund --prefer-offline
-      npm run lint
-      VITE_API_URL=/api npm run build
-    )
-    mv "$TEMPORARIO/dist" "$release"
-    rm -rf -- "$TEMPORARIO"
+    git clone --quiet --depth 1 --branch "$WEB_BRANCH" "$WEB_REPOSITORIO" "$TEMPORARIO"
+
+    if [[ ! -f "$TEMPORARIO/index.html" ]]; then
+      echo "Artefato do frontend inválido: index.html ausente." >&2
+      exit 1
+    fi
+
+    rm -rf -- "$TEMPORARIO/.git"
+    mv "$TEMPORARIO" "$release"
     TEMPORARIO=""
   fi
 
@@ -170,10 +173,10 @@ limpar_releases_antigas() {
 }
 
 SHA_BACKEND="$(sha_remoto "$API_REPOSITORIO")"
-SHA_FRONTEND="$(sha_remoto "$WEB_REPOSITORIO")"
+SHA_FRONTEND="$(sha_remoto "$WEB_REPOSITORIO" "$WEB_BRANCH")"
 
 if [[ -z "$SHA_BACKEND" || -z "$SHA_FRONTEND" ]]; then
-  echo "Não foi possível consultar a main dos repositórios." >&2
+  echo "Não foi possível consultar as versões publicadas dos repositórios." >&2
   exit 1
 fi
 
