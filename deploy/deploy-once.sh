@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 BASE="/opt/cadencia"
 API_REPOSITORIO="https://github.com/T-TheV/papacharlie197-api.git"
+API_BRANCH="deploy"
 WEB_REPOSITORIO="https://github.com/T-TheV/papacharlie197-web.git"
 WEB_BRANCH="deploy"
 ESTADO_BACKEND="$BASE/shared/backend.sha"
@@ -97,29 +98,42 @@ publicar_backend() {
 
   if [[ ! -d "$release" ]]; then
     TEMPORARIO="$BASE/tmp/backend-$sha-$$"
-    git clone --quiet --depth 1 --branch main "$API_REPOSITORIO" "$TEMPORARIO"
-    ln -sfn "$BASE/shared/backend.env" "$TEMPORARIO/.env"
+    git clone --quiet --depth 1 --branch "$API_BRANCH" "$API_REPOSITORIO" "$TEMPORARIO"
+
+    if [[ ! -f "$TEMPORARIO/backend.tar.gz" ]]; then
+      echo "Artefato do backend inválido: backend.tar.gz ausente." >&2
+      exit 1
+    fi
+
+    install -d -m 0755 "$TEMPORARIO/release"
+    tar -xzf "$TEMPORARIO/backend.tar.gz" -C "$TEMPORARIO/release"
+
+    if [[ ! -f "$TEMPORARIO/release/package.json" \
+      || ! -x "$TEMPORARIO/release/node_modules/.bin/sequelize-cli" ]]; then
+      echo "Artefato do backend inválido: aplicação ou dependências ausentes." >&2
+      exit 1
+    fi
+
+    ln -sfn "$BASE/shared/backend.env" "$TEMPORARIO/release/.env"
     if [[ "$TEMPORARIO" != "$BASE/tmp/backend-"* ]]; then
       echo "Diretório temporário inesperado; vínculo de uploads cancelado." >&2
       exit 1
     fi
-    rm -rf -- "$TEMPORARIO/uploads"
-    ln -s "$BASE/shared/uploads" "$TEMPORARIO/uploads"
+    rm -rf -- "$TEMPORARIO/release/uploads"
+    ln -s "$BASE/shared/uploads" "$TEMPORARIO/release/uploads"
 
     (
-      cd "$TEMPORARIO"
-      npm ci --no-audit --no-fund --prefer-offline
-      npm test
+      cd "$TEMPORARIO/release"
       guardar_backup_banco
       set -a
       # shellcheck disable=SC1090
       source "$BASE/shared/backend.env"
       set +a
-      NODE_ENV=production npx sequelize-cli db:migrate
-      npm prune --omit=dev --no-audit --no-fund
+      NODE_ENV=production ./node_modules/.bin/sequelize-cli db:migrate
     )
 
-    mv "$TEMPORARIO" "$release"
+    mv "$TEMPORARIO/release" "$release"
+    rm -rf -- "$TEMPORARIO"
     TEMPORARIO=""
   fi
 
@@ -172,7 +186,7 @@ limpar_releases_antigas() {
       done
 }
 
-SHA_BACKEND="$(sha_remoto "$API_REPOSITORIO")"
+SHA_BACKEND="$(sha_remoto "$API_REPOSITORIO" "$API_BRANCH")"
 SHA_FRONTEND="$(sha_remoto "$WEB_REPOSITORIO" "$WEB_BRANCH")"
 
 if [[ -z "$SHA_BACKEND" || -z "$SHA_FRONTEND" ]]; then

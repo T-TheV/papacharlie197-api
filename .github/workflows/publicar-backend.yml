@@ -1,0 +1,64 @@
+name: Publicar backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-backend
+  cancel-in-progress: true
+
+jobs:
+  validar-e-empacotar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+
+      - name: Executar testes
+        run: npm test
+
+      - name: Empacotar aplicação pronta
+        run: |
+          deploy_dir="${RUNNER_TEMP}/cadencia-backend-deploy"
+          mkdir -p "$deploy_dir"
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='uploads' \
+            -czf "$deploy_dir/backend.tar.gz" \
+            .
+          sha256sum "$deploy_dir/backend.tar.gz" > "$deploy_dir/backend.tar.gz.sha256"
+          printf '%s\n' "$GITHUB_SHA" > "$deploy_dir/source.sha"
+
+      - name: Publicar artefato pronto
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deploy_dir="${RUNNER_TEMP}/cadencia-backend-deploy"
+          cd "$deploy_dir"
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b deploy
+          git add --all
+          git commit -m "deploy: ${GITHUB_SHA}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin deploy
