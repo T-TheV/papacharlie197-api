@@ -20,6 +20,17 @@ const {
 const XP_POR_ACERTO = 10;
 const INTERVALOS_REVISAO_HORAS = [24, 72, 168, 336]; // 1d, 3d, 7d, 14d
 
+function encontrarAulaParaContinuar(aulasOrdenadas, progressos) {
+  const statusPorAula = new Map(progressos.map((progresso) => [Number(progresso.aula_id), progresso.status]));
+  const emAndamento = aulasOrdenadas.find(
+    (aula) => statusPorAula.get(Number(aula.id)) === "em_andamento",
+  );
+  if (emAndamento) return null;
+  return aulasOrdenadas.find(
+    (aula) => statusPorAula.get(Number(aula.id)) !== "concluido",
+  ) || null;
+}
+
 async function definirProgresso(usuarioId, aulaId, dados, transaction) {
   const [progresso] = await ProgressoUsuario.findOrCreate({
     where: { usuario_id: usuarioId, aula_id: aulaId },
@@ -58,22 +69,21 @@ async function definirErro(usuarioId, questaoId, transaction) {
 
 async function garantirProgressoInicial(usuarioId, contexto, transaction) {
   const modulos = await listarModulosVisiveis(contexto, { transaction });
-  const aulaIdsVisiveis = modulos.flatMap((modulo) => modulo.aulas.map((aula) => aula.id));
-  const jaTemProgresso = await ProgressoUsuario.findOne({
+  const aulasVisiveis = modulos.flatMap((modulo) => modulo.aulas);
+  if (aulasVisiveis.length === 0) return;
+  const aulaIdsVisiveis = aulasVisiveis.map((aula) => aula.id);
+  const progressos = await ProgressoUsuario.findAll({
     where: { usuario_id: usuarioId, aula_id: aulaIdsVisiveis },
     transaction,
   });
-  if (jaTemProgresso) return;
-
-  const primeiraAula = modulos.flatMap((modulo) => modulo.aulas)[0];
-
-  if (primeiraAula) {
-    await ProgressoUsuario.create({
-      usuario_id: usuarioId,
-      aula_id: primeiraAula.id,
-      status: "em_andamento",
-    }, { transaction });
-  }
+  const aulaParaContinuar = encontrarAulaParaContinuar(aulasVisiveis, progressos);
+  if (!aulaParaContinuar) return;
+  await definirProgresso(
+    usuarioId,
+    aulaParaContinuar.id,
+    { status: "em_andamento" },
+    transaction,
+  );
 }
 
 async function processarResposta({ usuarioId, questaoId, alternativa, contexto }) {
@@ -220,6 +230,7 @@ async function alternarConclusaoManual(usuarioId, aulaId, contexto) {
 }
 
 module.exports = {
+  encontrarAulaParaContinuar,
   garantirProgressoInicial,
   processarResposta,
   alternarConclusaoManual,

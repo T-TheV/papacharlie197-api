@@ -22,6 +22,10 @@ const {
   minutosDisponiveis,
   selecionarAgenda,
 } = require("./agendaAdaptativa.service");
+const {
+  escopoFlashcardsWhere,
+  garantirFlashcardsCatalogo,
+} = require("./flashcardsCatalogo.service");
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 const AVALIACOES = new Set(["errei", "dificil", "bom", "facil"]);
@@ -131,7 +135,7 @@ async function sincronizarItensAutomaticos(itens, usuarioId, contexto, transacti
       ? Flashcard.count({
           where: {
             usuario_id: usuarioId,
-            ...contextoWhere(contexto),
+            ...escopoFlashcardsWhere(contexto),
             ativo: true,
             proxima_revisao_em: { [Op.lte]: new Date() },
           },
@@ -154,6 +158,7 @@ async function sincronizarItensAutomaticos(itens, usuarioId, contexto, transacti
 
 async function candidatosDoPlano(usuario, contexto, config, transaction) {
   await garantirProgressoInicial(usuario.id, contexto, transaction);
+  await garantirFlashcardsCatalogo(usuario.id, contexto, { transaction });
   const [modulos, progressos, erros, flashcardsVencidos] = await Promise.all([
     listarModulosVisiveis(contexto, { transaction }),
     ProgressoUsuario.findAll({ where: { usuario_id: usuario.id }, transaction }),
@@ -161,7 +166,7 @@ async function candidatosDoPlano(usuario, contexto, config, transaction) {
     Flashcard.count({
       where: {
         usuario_id: usuario.id,
-        ...contextoWhere(contexto),
+        ...escopoFlashcardsWhere(contexto),
         ativo: true,
         proxima_revisao_em: { [Op.lte]: new Date() },
       },
@@ -370,7 +375,9 @@ async function atualizarPreferencias(usuarioId, contexto, dados) {
 }
 
 async function listarFlashcards(usuarioId, contexto, filtros = {}) {
-  const where = { usuario_id: usuarioId, ...contextoWhere(contexto), ativo: true };
+  await garantirFlashcardsCatalogo(usuarioId, contexto);
+  const escopo = escopoFlashcardsWhere(contexto);
+  const where = { usuario_id: usuarioId, ...escopo, ativo: true };
   if (filtros.vencidos !== false) where.proxima_revisao_em = { [Op.lte]: new Date() };
   if (filtros.moduloId) where.modulo_id = filtros.moduloId;
   if (filtros.aulaId) where.aula_id = filtros.aulaId;
@@ -383,9 +390,9 @@ async function listarFlashcards(usuarioId, contexto, filtros = {}) {
     order: [["proxima_revisao_em", "ASC"], ["created_at", "ASC"]],
     limit: 200,
   });
-  const total = await Flashcard.count({ where: { usuario_id: usuarioId, ...contextoWhere(contexto), ativo: true } });
+  const total = await Flashcard.count({ where: { usuario_id: usuarioId, ...escopo, ativo: true } });
   const vencidos = await Flashcard.count({
-    where: { usuario_id: usuarioId, ...contextoWhere(contexto), ativo: true, proxima_revisao_em: { [Op.lte]: new Date() } },
+    where: { usuario_id: usuarioId, ...escopo, ativo: true, proxima_revisao_em: { [Op.lte]: new Date() } },
   });
   return { flashcards: cards.map(dtoFlashcard), total, vencidos };
 }
@@ -437,9 +444,12 @@ function fallbackFlashcards(aula, quantidade) {
 async function gerarFlashcardsDaAula(usuarioId, contexto, aulaId, quantidade = 6) {
   const escopo = await validarEscopoFlashcard(usuarioId, contexto, { aulaId });
   const aula = escopo.aula;
+  const trilhasDoModulo = aula.modulo?.trilhas || [];
+  const trilhaIdDoCard = trilhasDoModulo.length === 1 ? trilhasDoModulo[0].id : null;
+  const escopoDosCards = escopoFlashcardsWhere(contexto);
   const limite = Math.max(3, Math.min(10, Math.round(Number(quantidade) || 6)));
   const existentes = await Flashcard.findAll({
-    where: { usuario_id: usuarioId, ...contextoWhere(contexto), aula_id: aula.id, origem: "aula", ativo: true },
+    where: { usuario_id: usuarioId, ...escopoDosCards, aula_id: aula.id, origem: "aula", ativo: true },
     order: [["created_at", "ASC"]],
   });
   if (existentes.length > 0) return { flashcards: existentes.map(dtoFlashcard), existentes: true, geradosPorIa: false };
@@ -461,7 +471,8 @@ async function gerarFlashcardsDaAula(usuarioId, contexto, aulaId, quantidade = 6
 
   await Flashcard.bulkCreate(gerados.slice(0, limite).map((card, indice) => ({
     usuario_id: usuarioId,
-    ...contextoWhere(contexto),
+    agencia_id: contexto.agenciaId,
+    trilha_id: trilhaIdDoCard,
     modulo_id: aula.modulo_id,
     aula_id: aula.id,
     frente: card.frente,
@@ -470,7 +481,7 @@ async function gerarFlashcardsDaAula(usuarioId, contexto, aulaId, quantidade = 6
     chave_origem: `aula:${aula.id}:${indice + 1}`,
   })), { ignoreDuplicates: true });
   const criados = await Flashcard.findAll({
-    where: { usuario_id: usuarioId, ...contextoWhere(contexto), aula_id: aula.id, origem: "aula", ativo: true },
+    where: { usuario_id: usuarioId, ...escopoDosCards, aula_id: aula.id, origem: "aula", ativo: true },
     order: [["created_at", "ASC"]],
   });
   return { flashcards: criados.map(dtoFlashcard), existentes: false, geradosPorIa };
@@ -493,7 +504,7 @@ async function gerarFlashcardsDosErros(usuarioId, contexto, quantidade = 10) {
   const cards = await Flashcard.findAll({
     where: {
       usuario_id: usuarioId,
-      ...contextoWhere(contexto),
+      ...escopoFlashcardsWhere(contexto),
       chave_origem: registros.map((registro) => `erro:${registro.questao_id}`),
       ativo: true,
     },
@@ -503,7 +514,7 @@ async function gerarFlashcardsDosErros(usuarioId, contexto, quantidade = 10) {
 }
 
 async function atualizarFlashcard(usuarioId, contexto, id, dados) {
-  const card = await Flashcard.findOne({ where: { id, usuario_id: usuarioId, ...contextoWhere(contexto) } });
+  const card = await Flashcard.findOne({ where: { id, usuario_id: usuarioId, ...escopoFlashcardsWhere(contexto) } });
   if (!card) throw erro("Flashcard não encontrado neste curso", 404);
   const frente = dados.frente === undefined ? card.frente : String(dados.frente).trim();
   const verso = dados.verso === undefined ? card.verso : String(dados.verso).trim();
@@ -540,7 +551,7 @@ async function revisarFlashcard(usuarioId, contexto, id, avaliacao) {
   if (!AVALIACOES.has(avaliacao)) throw erro("Avaliação do flashcard inválida");
   return sequelize.transaction(async (transaction) => {
     const card = await Flashcard.findOne({
-      where: { id, usuario_id: usuarioId, ...contextoWhere(contexto), ativo: true },
+      where: { id, usuario_id: usuarioId, ...escopoFlashcardsWhere(contexto), ativo: true },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -650,7 +661,14 @@ async function obterEvolucao(usuarioId, contexto, dias = 30) {
     Simulado.findAll({ where: { ...escopo, concluido_em: { [Op.gte]: desde } } }),
     ItemPlanoDiario.findAll({ where: { ...escopo, data: { [Op.gte]: dataISO(desde) } } }),
     Usuario.findByPk(usuarioId),
-    Flashcard.count({ where: { ...escopo, ativo: true, proxima_revisao_em: { [Op.lte]: new Date() } } }),
+    Flashcard.count({
+      where: {
+        usuario_id: usuarioId,
+        ...escopoFlashcardsWhere(contexto),
+        ativo: true,
+        proxima_revisao_em: { [Op.lte]: new Date() },
+      },
+    }),
   ]);
   const serie = [];
   for (let indice = 0; indice < periodo; indice += 1) {
