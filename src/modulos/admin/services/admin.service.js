@@ -3,7 +3,10 @@ const Aula = require("../../estudo/models/aula.model");
 const Questao = require("../../estudo/models/questao.model");
 const QuestaoDiscursiva = require("../../estudo/models/questaoDiscursiva.model");
 const { gerarQuestoesSimilares, gerarConteudoAulaComTranscricao } = require("../../ia/services/gemini.service");
-const { buscarTranscricaoBruta } = require("../../ia/services/youtubeTranscricao.service");
+const {
+  buscarTranscricaoBruta,
+  formatarTranscricaoAutomatica,
+} = require("../../ia/services/youtubeTranscricao.service");
 const Agencia = require("../../catalogo/models/agencia.model");
 const Trilha = require("../../catalogo/models/trilha.model");
 const { sequelize } = require("../../../config/configDB");
@@ -141,10 +144,10 @@ function validarUrlVideo(url) {
 // conceitos diferentes do vídeo, em vez de uma única pergunta rasa cobrindo um vídeo de 40+ minutos.
 function determinarQuantidades(transcricaoBruta) {
   const tamanho = transcricaoBruta.length;
-  if (tamanho < 6000) return { questoes: 1, discursivas: 1 };
-  if (tamanho < 18000) return { questoes: 2, discursivas: 1 };
-  if (tamanho < 35000) return { questoes: 3, discursivas: 2 };
-  return { questoes: 4, discursivas: 2 };
+  if (tamanho < 8000) return { questoes: 5, discursivas: 2 };
+  if (tamanho < 25000) return { questoes: 6, discursivas: 2 };
+  if (tamanho < 60000) return { questoes: 8, discursivas: 3 };
+  return { questoes: 10, discursivas: 3 };
 }
 
 // Atualiza os registros existentes (na ordem) com os novos dados, preservando os ids que já existiam
@@ -170,9 +173,17 @@ async function reconciliarRegistros(Modelo, existentes, novosDados, transaction)
 }
 
 async function gerarConteudoDoVideo(aula) {
-  const transcricaoBruta = await buscarTranscricaoBruta(aula.youtube_iframe_url);
+  const transcricaoExistente = aula.transcricao_texto?.trim();
+  const transcricaoBruta = transcricaoExistente || await buscarTranscricaoBruta(aula.youtube_iframe_url);
+  const transcricaoFormatada = transcricaoExistente || formatarTranscricaoAutomatica(transcricaoBruta);
+  if (!transcricaoExistente) {
+    await aula.update({
+      transcricao_texto: transcricaoFormatada,
+      transcricao_gerada_em: new Date(),
+    });
+  }
   const { questoes: quantidadeQuestoes, discursivas: quantidadeDiscursivas } = determinarQuantidades(transcricaoBruta);
-  const { transcricaoFormatada, resumo, questoes, discursivas, mapaMental } = await gerarConteudoAulaComTranscricao({
+  const { resumo, questoes, discursivas, mapaMental } = await gerarConteudoAulaComTranscricao({
     titulo: aula.titulo,
     transcricaoBruta,
     quantidadeQuestoes,

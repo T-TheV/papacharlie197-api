@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "node --test",
-    "importar:curso-csharp": "node scripts/importarCursoCsharp.js"
+    "importar:curso-csharp": "node scripts/importarCursoCsharp.js",
+    "enriquecer:devops": "node scripts/enriquecerDevOps.js"
   },
   "license": "ISC",
   "dependencies": {

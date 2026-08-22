@@ -34,6 +34,7 @@ function dtoTrilha(trilha, { inscrito = false } = {}) {
     nomeCurto: trilha.nome_curto,
     slug: trilha.slug,
     descricao: trilha.descricao,
+    configuracaoEstudo: trilha.configuracao_estudo || {},
     ordem: trilha.ordem,
     ativa: trilha.ativa,
     inscrito,
@@ -355,6 +356,106 @@ async function atualizarTrilha(id, dados) {
   return trilha;
 }
 
+function percentual(parte, total) {
+  if (!total) return 0;
+  return Math.round((Number(parte) / Number(total)) * 100);
+}
+
+async function obterProgressoTrilha(usuarioId, trilhaId) {
+  const trilha = await Trilha.findByPk(trilhaId);
+  if (!trilha || !trilha.ativa) erro("Trilha não encontrada", 404);
+  const inscricao = await InscricaoTrilha.findOne({
+    where: { usuario_id: usuarioId, trilha_id: trilha.id },
+  });
+  if (!inscricao) erro("Você ainda não está inscrito nesta trilha", 403);
+
+  const [linhas] = await sequelize.query(
+    `WITH modulos_trilha AS (
+       SELECT modulo_id FROM modulos_trilhas WHERE trilha_id=:trilhaId
+     ), aulas_trilha AS (
+       SELECT a.id, a.tipo_conteudo, m.titulo AS modulo_titulo
+         FROM aulas a JOIN modulos m ON m.id=a.modulo_id
+        WHERE a.modulo_id IN (SELECT modulo_id FROM modulos_trilha)
+     ), objetivas AS (
+       SELECT q.id FROM questoes q JOIN aulas_trilha a ON a.id=q.aula_id WHERE q.origem='estudo'
+     ), discursivas AS (
+       SELECT q.id FROM questoes_discursivas q JOIN aulas_trilha a ON a.id=q.aula_id
+     )
+     SELECT
+       (SELECT COUNT(*) FROM aulas_trilha)::int AS aulas_total,
+       (SELECT COUNT(*) FROM aulas_trilha a JOIN progresso_usuarios p ON p.aula_id=a.id
+         WHERE p.usuario_id=:usuarioId AND p.status='concluido')::int AS aulas_concluidas,
+       (SELECT COUNT(*) FROM aulas_trilha WHERE tipo_conteudo='material')::int AS laboratorios_total,
+       (SELECT COUNT(*) FROM aulas_trilha a JOIN progresso_usuarios p ON p.aula_id=a.id
+         WHERE a.tipo_conteudo='material' AND p.usuario_id=:usuarioId AND p.status='concluido')::int AS laboratorios_concluidos,
+       (SELECT COUNT(*) FROM objetivas)::int AS objetivas_total,
+       (SELECT COUNT(*) FROM objetivas o JOIN respostas_questoes_objetivas r ON r.questao_id=o.id
+         WHERE r.usuario_id=:usuarioId)::int AS objetivas_corretas,
+       (SELECT COUNT(*) FROM discursivas)::int AS discursivas_total,
+       (SELECT COUNT(DISTINCT d.id) FROM discursivas d JOIN respostas_discursivas r ON r.questao_discursiva_id=d.id
+         WHERE r.usuario_id=:usuarioId)::int AS discursivas_respondidas,
+       (SELECT COUNT(*) FROM aulas_trilha WHERE modulo_titulo='Projeto integrador DevOps')::int AS projeto_total,
+       (SELECT COUNT(*) FROM aulas_trilha a JOIN progresso_usuarios p ON p.aula_id=a.id
+         WHERE a.modulo_titulo='Projeto integrador DevOps' AND p.usuario_id=:usuarioId AND p.status='concluido')::int AS projeto_concluido`,
+    { replacements: { trilhaId: trilha.id, usuarioId } },
+  );
+  const dados = linhas[0];
+  const regras = trilha.configuracao_estudo?.requisitosConclusao || {};
+  const aulasPercentual = percentual(dados.aulas_concluidas, dados.aulas_total);
+  const questoesPercentual = percentual(dados.objetivas_corretas, dados.objetivas_total);
+  const projetoCompleto = dados.projeto_total > 0 && dados.projeto_concluido === dados.projeto_total;
+  const criterios = [
+    {
+      chave: "aulas",
+      titulo: "Concluir todas as unidades",
+      atual: aulasPercentual,
+      meta: Number(regras.percentualAulas || 100),
+      unidade: "%",
+    },
+    {
+      chave: "questoes",
+      titulo: "Domínio das questões objetivas",
+      atual: questoesPercentual,
+      meta: Number(regras.percentualQuestoesCorretas || 80),
+      unidade: "%",
+    },
+    {
+      chave: "laboratorios",
+      titulo: "Laboratórios com evidências",
+      atual: dados.laboratorios_concluidos,
+      meta: Number(regras.laboratoriosObrigatorios || dados.laboratorios_total),
+      unidade: "laboratórios",
+    },
+    {
+      chave: "discursivas",
+      titulo: "Respostas técnicas desenvolvidas",
+      atual: dados.discursivas_respondidas,
+      meta: Number(regras.respostasDiscursivasMinimas || 0),
+      unidade: "respostas",
+    },
+    {
+      chave: "projeto",
+      titulo: "Projeto integrador e portfólio",
+      atual: projetoCompleto ? 1 : 0,
+      meta: regras.projetoIntegradorObrigatorio === false ? 0 : 1,
+      unidade: "projeto",
+    },
+  ].map((criterio) => ({ ...criterio, atingido: criterio.atual >= criterio.meta }));
+
+  return {
+    trilha: dtoTrilha(trilha, { inscrito: true }),
+    resumo: {
+      aulas: { concluidas: dados.aulas_concluidas, total: dados.aulas_total, percentual: aulasPercentual },
+      laboratorios: { concluidos: dados.laboratorios_concluidos, total: dados.laboratorios_total },
+      objetivas: { corretas: dados.objetivas_corretas, total: dados.objetivas_total, percentual: questoesPercentual },
+      discursivas: { respondidas: dados.discursivas_respondidas, total: dados.discursivas_total },
+      projeto: { concluidas: dados.projeto_concluido, total: dados.projeto_total },
+    },
+    criterios,
+    aprovado: criterios.every((criterio) => criterio.atingido),
+  };
+}
+
 module.exports = {
   dtoAgencia,
   dtoTrilha,
@@ -373,4 +474,5 @@ module.exports = {
   definirAgenciaPadrao,
   criarTrilha,
   atualizarTrilha,
+  obterProgressoTrilha,
 };

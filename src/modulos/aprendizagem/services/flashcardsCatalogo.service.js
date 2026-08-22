@@ -1,7 +1,14 @@
 const { Op } = require("sequelize");
 const Flashcard = require("../models/flashcard.model");
 const Modulo = require("../../estudo/models/modulo.model");
+const Aula = require("../../estudo/models/aula.model");
 const { flashcardsPoliciaCivil } = require("../../../dados/catalogoPoliciaCivil");
+const { flashcardsDevOps } = require("../../../dados/catalogoDevOps");
+
+const CATALOGOS_POR_AGENCIA = {
+  "policia-civil": flashcardsPoliciaCivil,
+  "engenharia-de-software": flashcardsDevOps,
+};
 
 function escopoFlashcardsWhere(contexto) {
   const agenciaId = contexto.agenciaId;
@@ -15,10 +22,11 @@ function escopoFlashcardsWhere(contexto) {
 }
 
 async function garantirFlashcardsCatalogo(usuarioId, contexto, { transaction } = {}) {
-  if (contexto.agencia?.slug !== "policia-civil") return 0;
+  const catalogo = CATALOGOS_POR_AGENCIA[contexto.agencia?.slug];
+  if (!catalogo) return 0;
 
   const trilhaSlug = contexto.trilha?.slug || null;
-  const definicoes = flashcardsPoliciaCivil.filter(
+  const definicoes = catalogo.filter(
     (card) => card.trilhaSlug === null || card.trilhaSlug === trilhaSlug,
   );
   if (!definicoes.length) return 0;
@@ -32,19 +40,38 @@ async function garantirFlashcardsCatalogo(usuarioId, contexto, { transaction } =
     transaction,
   });
   const moduloPorTitulo = new Map(modulos.map((modulo) => [modulo.titulo, modulo.id]));
+  const titulosAulas = [...new Set(definicoes.map((card) => card.aulaTitulo).filter(Boolean))];
+  const aulas = titulosAulas.length
+    ? await Aula.findAll({
+        where: {
+          modulo_id: { [Op.in]: modulos.map((modulo) => modulo.id) },
+          titulo: { [Op.in]: titulosAulas },
+        },
+        attributes: ["id", "modulo_id", "titulo"],
+        transaction,
+      })
+    : [];
+  const aulaPorModuloETitulo = new Map(
+    aulas.map((aula) => [`${aula.modulo_id}:${aula.titulo}`, aula.id]),
+  );
   const registros = definicoes
     .filter((card) => moduloPorTitulo.has(card.moduloTitulo))
-    .map((card) => ({
-      usuario_id: usuarioId,
-      agencia_id: contexto.agenciaId,
-      trilha_id: card.trilhaSlug ? contexto.trilhaId : null,
-      modulo_id: moduloPorTitulo.get(card.moduloTitulo),
-      aula_id: null,
-      frente: card.frente,
-      verso: card.verso,
-      origem: "aula",
-      chave_origem: card.chaveOrigem,
-    }));
+    .map((card) => {
+      const moduloId = moduloPorTitulo.get(card.moduloTitulo);
+      return {
+        usuario_id: usuarioId,
+        agencia_id: contexto.agenciaId,
+        trilha_id: card.trilhaSlug ? contexto.trilhaId : null,
+        modulo_id: moduloId,
+        aula_id: card.aulaTitulo
+          ? aulaPorModuloETitulo.get(`${moduloId}:${card.aulaTitulo}`) || null
+          : null,
+        frente: card.frente,
+        verso: card.verso,
+        origem: "aula",
+        chave_origem: card.chaveOrigem,
+      };
+    });
 
   if (registros.length) {
     await Flashcard.bulkCreate(registros, { ignoreDuplicates: true, transaction });

@@ -67,4 +67,15 @@ async function definirDataProva(requisicao, resposta, proximo) {
   }
 }
 
-module.exports = { listarPublico, listar, ativar, inscrever, definirDataProva };
+async function obterProgressoTrilha(requisicao, resposta, proximo) {
+  try {
+    resposta.json(await catalogoService.obterProgressoTrilha(
+      requisicao.usuario.id,
+      Number(requisicao.params.trilhaId),
+    ));
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+module.exports = { listarPublico, listar, ativar, inscrever, definirDataProva, obterProgressoTrilha };

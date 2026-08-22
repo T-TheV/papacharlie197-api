@@ -45,4 +45,28 @@ async function buscarTranscricaoBruta(youtubeIframeUrl) {
   return segmentos.map((s) => s.text).join(" ");
 }
 
-module.exports = { buscarTranscricaoBruta };
+function formatarTranscricaoAutomatica(texto) {
+  const limpo = String(texto || "")
+    .replace(/\[(music|música|applause|aplausos)\]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!limpo) return "";
+
+  const frases = limpo.split(/(?<=[.!?])\s+/);
+  const unidades = frases.length > 4 ? frases : limpo.split(" ");
+  const paragrafos = [];
+  let atual = "";
+  for (const unidade of unidades) {
+    const separador = atual ? " " : "";
+    if (atual.length + separador.length + unidade.length > 900 && atual.length >= 450) {
+      paragrafos.push(atual.trim());
+      atual = unidade;
+    } else {
+      atual += `${separador}${unidade}`;
+    }
+  }
+  if (atual.trim()) paragrafos.push(atual.trim());
+  return paragrafos.join("\n\n");
+}
+
+module.exports = { buscarTranscricaoBruta, formatarTranscricaoAutomatica };

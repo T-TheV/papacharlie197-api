@@ -284,22 +284,20 @@ async function gerarQuestoesSimilares(questaoReferencia, quantidade = 2) {
 }
 
 function montarPromptTranscricao({ titulo, transcricaoBruta, quantidadeQuestoes, quantidadeDiscursivas }) {
-  return `Você recebeu a transcrição bruta (gerada automaticamente pelo YouTube, sem pontuação ou formatação) de um vídeo educativo. Sua tarefa tem cinco partes:
+  return `Você recebeu a transcrição automática de um vídeo educativo. Produza material de estudo fiel ao que foi efetivamente explicado, sem completar lacunas com conhecimento externo. Sua tarefa tem quatro partes:
 
-1. TRANSCRIÇÃO FORMATADA: reescreva a transcrição bruta abaixo em texto corrido, com pontuação, maiúsculas e parágrafos organizados. Isso é uma limpeza de formatação, NÃO um resumo — preserve tudo o que foi efetivamente dito no vídeo, sem cortar, resumir ou adicionar conteúdo que não estava na transcrição original.
+1. RESUMO DIDÁTICO: com base SOMENTE no conteúdo real da transcrição, escreva em HTML simples de 4 a 8 parágrafos curtos. Apresente objetivo, conceitos, processo ou demonstração, decisões técnicas, erros/limites mencionados e síntese para revisão. Use <p>, <strong>, <ul> e <li>, sem markdown e sem <html>/<body>. Não copie trechos longos da fala; explique de forma original e concisa.
 
-2. RESUMO: com base SOMENTE no conteúdo real da transcrição (não use conhecimento próprio, não invente artigos de lei, números ou dados que não estejam explicitamente ditos no vídeo), escreva um resumo em HTML simples (parágrafos com <p>, pode usar <strong> para destacar termos-chave, sem markdown, sem <html>/<body>) com 2 a 4 frases objetivas cobrindo os pontos principais explicados no vídeo.
-
-3. QUESTÕES OBJETIVAS: crie ${quantidadeQuestoes} questão(ões) de múltipla escolha (5 alternativas A-E, só uma correta) que testem conceitos EXPLICITAMENTE explicados na transcrição. Regras estritas, iguais para a alternativa correta E as erradas:
+2. QUESTÕES OBJETIVAS: crie ${quantidadeQuestoes} questão(ões) de múltipla escolha (5 alternativas A-E, só uma correta) que testem conceitos EXPLICITAMENTE explicados na transcrição. Regras estritas, iguais para a alternativa correta E as erradas:
 - Não invente artigos de lei, números, prazos ou dados que não estejam ditos na transcrição. Se um dado jurídico não foi mencionado no vídeo, não o use nem na resposta certa nem nas erradas — prefira testar o conceito de forma mais direta.
 - As alternativas erradas devem ser plausíveis mas claramente contrariadas pelo que foi dito no vídeo (ex: inverter uma regra explicada, trocar uma exceção pela regra), não fatos aleatórios de fora do vídeo.
 - Não copie uma frase inteira da transcrição como enunciado — reformule como pergunta.
 ${quantidadeQuestoes > 1 ? `- Se houver mais de uma questão, cada uma deve testar um CONCEITO DIFERENTE e distinto entre si, cobrindo pontos distribuídos ao longo de toda a transcrição (não apenas o início) — nunca faça duas questões sobre a mesma ideia com enunciado reformulado.` : ""}
 
-4. QUESTÕES DISCURSIVAS: crie ${quantidadeDiscursivas} enunciado(s) discursivo(s) (pede pro candidato explicar/discorrer sobre algo, não múltipla escolha), cada um exigindo desenvolver um conceito explicado no vídeo, com uma lista de 3 a 5 critérios de avaliação objetivos e verificáveis (o "gabarito" que outro corretor vai usar), cada um cobrindo um ponto específico realmente dito na transcrição. Não invente critérios sobre conteúdo que não foi abordado no vídeo.
+3. QUESTÕES DISCURSIVAS: crie ${quantidadeDiscursivas} enunciado(s) discursivo(s) de aplicação técnica, cada um exigindo desenvolver um conceito explicado no vídeo, com uma lista de 3 a 5 critérios de avaliação objetivos e verificáveis, cobrindo pontos específicos realmente ditos na transcrição. Não invente critérios sobre conteúdo que não foi abordado no vídeo.
 ${quantidadeDiscursivas > 1 ? `- Se houver mais de uma discursiva, cada uma deve abordar um tema diferente entre si, cobrindo pontos distintos da transcrição.` : ""}
 
-5. MAPA MENTAL: organize o conteúdo efetivamente explicado em 3 a 6 ramos. Cada ramo tem título específico e curto, resumo de uma frase e de 2 a 5 tópicos objetivos. Preserve a ordem lógica da aula, não repita ideias e não acrescente conhecimento externo.
+4. MAPA MENTAL: organize o conteúdo efetivamente explicado em 3 a 6 ramos. Cada ramo tem título específico e curto, resumo de uma frase e de 2 a 5 tópicos objetivos. Preserve a ordem lógica da aula, não repita ideias e não acrescente conhecimento externo.
 
 TÍTULO DA AULA: ${titulo}
 
@@ -310,7 +308,6 @@ ${transcricaoBruta}
 
 Responda em JSON válido com exatamente estas chaves:
 {
-  "transcricaoFormatada": "texto corrido com parágrafos separados por \\n\\n, sem tags HTML",
   "resumo": "<p>...</p>",
   "questoes": [
     { "enunciado": "...", "a": "...", "b": "...", "c": "...", "d": "...", "e": "...", "alternativaCorreta": "a", "justificativa": "..." }
@@ -383,11 +380,10 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
       generationConfig: {
         temperature: 0.3,
         responseMimeType: "application/json",
-        maxOutputTokens: 65536,
+        maxOutputTokens: 16384,
         responseSchema: {
           type: "object",
           properties: {
-            transcricaoFormatada: { type: "string" },
             resumo: { type: "string" },
             questoes: {
               type: "array",
@@ -411,11 +407,11 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
               required: ["titulo", "sintese", "ramos"],
             },
           },
-          required: ["transcricaoFormatada", "resumo", "questoes", "discursivas", "mapaMental"],
+          required: ["resumo", "questoes", "discursivas", "mapaMental"],
         },
       },
     }),
-  });
+  }, 180000);
 
   if (!resposta.ok) {
     const detalhe = await resposta.text().catch(() => "");
@@ -430,7 +426,7 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
   if (!textoGerado) {
     const motivo = corpo?.candidates?.[0]?.finishReason;
     const erro = new Error(
-      `A IA não retornou uma transcrição válida${motivo ? ` (motivo: ${motivo})` : ""}.`,
+      `A IA não retornou conteúdo válido${motivo ? ` (motivo: ${motivo})` : ""}.`,
     );
     erro.status = 502;
     throw erro;
@@ -442,7 +438,7 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
   } catch {
     const motivo = corpo?.candidates?.[0]?.finishReason;
     const erro = new Error(
-      `A IA retornou um formato inesperado para a transcrição${motivo === "MAX_TOKENS" ? " (resposta cortada por limite de tamanho)" : ""}.`,
+      `A IA retornou um formato inesperado${motivo === "MAX_TOKENS" ? " (resposta cortada por limite de tamanho)" : ""}.`,
     );
     erro.status = 502;
     throw erro;
@@ -460,15 +456,14 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
     : [];
 
   if (
-    !parseado.transcricaoFormatada
-    || !parseado.resumo
+    !parseado.resumo
     || questoesValidas.length === 0
     || discursivasValidas.length === 0
     || !parseado.mapaMental?.titulo
     || !Array.isArray(parseado.mapaMental?.ramos)
     || parseado.mapaMental.ramos.length < 3
   ) {
-    const erro = new Error("A IA não retornou transcrição, resumo, questões e discursivas válidas.");
+    const erro = new Error("A IA não retornou resumo, questões, discursivas e mapa mental válidos.");
     erro.status = 502;
     throw erro;
   }
@@ -486,7 +481,6 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
   }
 
   return {
-    transcricaoFormatada: parseado.transcricaoFormatada,
     resumo: parseado.resumo,
     questoes: questoesValidas.map((q) => ({
       enunciado: q.enunciado,

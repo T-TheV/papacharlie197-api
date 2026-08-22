@@ -31,6 +31,7 @@ function dtoAula(aula) {
     ordem: aula.ordem,
     transcricaoTexto: aula.transcricao_texto,
     transcricaoGeradaEm: aula.transcricao_gerada_em,
+    guiaEstudo: aula.guia_estudo,
     questoes: (aula.questoes || []).map(dtoQuestao),
     discursivas: (aula.discursivas || []).map(dtoDiscursiva),
     anexos: (aula.anexos || []).map(dtoAnexo),

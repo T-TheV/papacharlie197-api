@@ -573,4 +573,182 @@ for (const modulo of modulosDevOps) {
   })));
 }
 
-module.exports = { modulosDevOps };
+const ambientePorModulo = {
+  "Fundamentos de DevOps e fluxo de entrega": {
+    ferramentas: ["Git", "Markdown", "diagrams.net ou Mermaid"],
+    preparacao: "Crie um repositório gratuito e registre o estado atual do fluxo antes de propor melhorias.",
+    comandos: ["git init", "git status", "git log --oneline --decorate"],
+  },
+  "Linux, terminal e automação com Bash": {
+    ferramentas: ["Linux ou WSL", "Bash", "systemd", "ShellCheck"],
+    preparacao: "Use uma máquina Linux local, VM gratuita ou WSL; nunca execute o laboratório diretamente em produção.",
+    comandos: ["shellcheck script.sh", "systemctl status nome-do-servico", "journalctl -u nome-do-servico --since today"],
+  },
+  "Redes, DNS, HTTP e diagnóstico": {
+    ferramentas: ["Docker", "curl", "dig", "OpenSSL", "Caddy ou Nginx"],
+    preparacao: "Monte dois serviços descartáveis em rede local e mantenha portas administrativas inacessíveis externamente.",
+    comandos: ["dig +short exemplo.local", "curl -v https://exemplo.local/health", "openssl s_client -connect exemplo.local:443 -servername exemplo.local"],
+  },
+  "Git e colaboração em código": {
+    ferramentas: ["Git", "GitHub gratuito", "Markdown"],
+    preparacao: "Crie um repositório de laboratório sem dados sensíveis e habilite revisão antes do merge.",
+    comandos: ["git log --graph --oneline --all", "git diff --check", "git revert --no-commit HEAD"],
+  },
+  "Integração e entrega contínuas": {
+    ferramentas: ["GitHub Actions ou GitLab CI gratuito", "Git", "linguagem do projeto"],
+    preparacao: "Use um projeto pequeno com lint e testes reproduzíveis; configure segredos apenas no cofre do provedor.",
+    comandos: ["git rev-parse HEAD", "git tag --list", "git status --short"],
+  },
+  "Containers com Docker": {
+    ferramentas: ["Docker Engine", "Docker Compose", "Trivy"],
+    preparacao: "Use imagens oficiais, fixe versões e mantenha banco e aplicação em rede interna do Compose.",
+    comandos: ["docker compose config", "docker compose up --build", "trivy image nome-da-imagem:tag"],
+  },
+  "Kubernetes e empacotamento com Helm": {
+    ferramentas: ["kind ou minikube", "kubectl", "Helm"],
+    preparacao: "Crie um cluster local descartável e um namespace exclusivo para o laboratório.",
+    comandos: ["kubectl get all -n laboratorio", "kubectl rollout status deployment/aplicacao -n laboratorio", "helm lint ./chart"],
+  },
+  "Infraestrutura como código e configuração": {
+    ferramentas: ["OpenTofu ou Terraform", "Ansible", "tflint", "ansible-lint"],
+    preparacao: "Prefira provedores locais ou recursos gratuitos; salve state e segredos fora do repositório.",
+    comandos: ["terraform fmt -check -recursive", "terraform validate", "ansible-playbook --check playbook.yml"],
+  },
+  "Nuvem pública: AWS e Azure": {
+    ferramentas: ["diagrams.net ou Mermaid", "calculadoras oficiais de custo", "LocalStack ou Azurite quando aplicável"],
+    preparacao: "O laboratório pode ser concluído por projeto e emulação local; não crie recurso pago sem orçamento e alerta configurados.",
+    comandos: ["git diff --check", "git grep -nE '(AKIA|password|secret)' -- .", "git status --short"],
+  },
+  "Observabilidade e confiabilidade": {
+    ferramentas: ["OpenTelemetry", "Prometheus", "Grafana", "Jaeger"],
+    preparacao: "Suba a stack localmente e defina um comportamento de usuário observável antes de criar dashboards.",
+    comandos: ["curl -fsS http://localhost:9090/-/healthy", "curl -fsS http://localhost:3000/api/health", "docker compose ps"],
+  },
+  "DevSecOps e GitOps": {
+    ferramentas: ["Gitleaks", "Semgrep", "Trivy", "Argo CD", "kind"],
+    preparacao: "Trabalhe em cluster local e use somente segredos fictícios criados especificamente para o teste.",
+    comandos: ["gitleaks detect --source .", "trivy fs .", "argocd app diff aplicacao"],
+  },
+  "Projeto integrador DevOps": {
+    ferramentas: ["Git", "Docker", "GitHub Actions", "kind", "Helm", "OpenTelemetry"],
+    preparacao: "Escolha uma aplicação pequena, mantenha toda a solução reproduzível e registre cada decisão em ADR.",
+    comandos: ["git diff --check", "docker compose config", "kubectl get events --sort-by=.metadata.creationTimestamp"],
+  },
+};
+
+const CONFIGURACAO_TRILHA_DEVOPS = {
+  nivelInicial: "zero",
+  nivelObjetivo: "intermediario",
+  cargaHorariaEstimada: "100 a 140 horas",
+  metodologia: "Vídeos curados, prática guiada, recuperação por questões, revisão espaçada e projeto de portfólio.",
+  requisitosConclusao: {
+    percentualAulas: 100,
+    percentualQuestoesCorretas: 80,
+    laboratoriosObrigatorios: 33,
+    respostasDiscursivasMinimas: 24,
+    projetoIntegradorObrigatorio: true,
+    portfolioComEvidencias: true,
+  },
+};
+
+function nivelDoModulo(indiceModulo) {
+  if (indiceModulo < 3) return "fundamentos";
+  if (indiceModulo < 9) return "intermediario";
+  return "intermediario-avancado";
+}
+
+function criarGuiaEstudoDevOps(modulo, aula, indiceModulo = 0) {
+  const ambiente = ambientePorModulo[modulo.titulo] || {
+    ferramentas: ["Git", "Markdown"],
+    preparacao: "Crie um ambiente descartável e mantenha o trabalho versionado.",
+    comandos: ["git status", "git diff --check"],
+  };
+  const base = {
+    versao: 1,
+    nivel: nivelDoModulo(indiceModulo),
+    objetivo: aula.objetivo,
+    conceitos: aula.conceitos,
+    referencia: aula.referencia || modulo.referencia,
+  };
+
+  if (aula.tipo === "youtube") {
+    return {
+      ...base,
+      tipo: "video",
+      titulo: "Roteiro de estudo",
+      ferramentas: ambiente.ferramentas,
+      passos: [
+        { titulo: "Antes de assistir", instrucoes: [`Leia o objetivo e reconheça o que já sabe sobre ${aula.conceitos.join(", ")}.`, "Abra um arquivo de notas no repositório da trilha."] },
+        { titulo: "Durante o vídeo", instrucoes: ["Pause para reproduzir os comandos e exemplos em ambiente local.", "Registre decisões, falhas encontradas e o motivo de cada correção."] },
+        { titulo: "Recuperação ativa", instrucoes: ["Feche o vídeo e explique o tema com suas palavras antes de ler o resumo.", "Responda todas as objetivas e desenvolva as discursivas sem consultar o material."] },
+        { titulo: "Evidência", instrucoes: [`Produza uma nota curta demonstrando como ${aula.decisao}`, "Versione notas, comandos e resultados que não contenham segredos."] },
+      ],
+      criteriosAprovacao: [
+        "Acertar ao menos 80% das questões após revisar os erros.",
+        "Explicar o objetivo da aula sem repetir o resumo.",
+        "Registrar uma evidência prática ou decisão técnica no portfólio.",
+      ],
+    };
+  }
+
+  const ehCapstone = aula.titulo.startsWith("Capstone");
+  return {
+    ...base,
+    tipo: "laboratorio",
+    titulo: ehCapstone ? "Projeto de portfólio" : "Laboratório guiado",
+    duracaoMinutos: ehCapstone ? 240 : 90,
+    ferramentas: ambiente.ferramentas,
+    preparacao: ambiente.preparacao,
+    passos: [
+      { titulo: "Preparar o ambiente", instrucoes: [ambiente.preparacao, "Crie uma branch exclusiva e registre no README o objetivo, as premissas e os limites do exercício."] },
+      { titulo: "Definir o estado inicial", instrucoes: ["Execute e registre o comportamento antes da mudança.", `Identifique como ${aula.conceitos.join(", ")} aparecem no problema.`] },
+      { titulo: "Planejar uma mudança pequena", instrucoes: [`Divida a construção de ${aula.entrega} em incrementos verificáveis.`, "Defina antecipadamente critério de sucesso, falha e rollback."] },
+      { titulo: "Implementar e versionar", instrucoes: ["Implemente um incremento por vez, faça commits legíveis e não versione credenciais ou arquivos gerados.", "Explique no README as decisões que não forem óbvias."] },
+      { titulo: "Validar automaticamente", instrucoes: [`Comprove ${aula.validacao}.`, `Execute os verificadores adequados: ${ambiente.comandos.join("; ")}.`] },
+      { titulo: "Testar falha e recuperação", instrucoes: ["Introduza uma falha controlada, observe o sinal produzido e reverta a mudança.", "Registre tempo de detecção, hipótese, correção e resultado após o rollback."] },
+      { titulo: "Entregar evidências", instrucoes: [`Apresente ${aula.entrega}.`, "Inclua README, diagrama quando aplicável, comandos reproduzíveis, saídas relevantes e uma breve retrospectiva."] },
+    ],
+    comandosValidacao: ambiente.comandos,
+    entrega: aula.entrega,
+    validacao: aula.validacao,
+    evidenciasObrigatorias: ["README reproduzível", "histórico Git", "saídas dos testes", "registro de falha e recuperação"],
+    criteriosAprovacao: [
+      `A entrega contém ${aula.entrega}.`,
+      `A validação comprova ${aula.validacao}.`,
+      "Outra pessoa consegue reproduzir o resultado seguindo apenas o repositório.",
+      "Nenhum segredo foi versionado e existe estratégia documentada de rollback.",
+      "As evidências mostram o estado anterior, a mudança e o estado final.",
+    ],
+  };
+}
+
+const flashcardsDevOps = modulosDevOps.flatMap((modulo, indiceModulo) =>
+  modulo.aulas.flatMap((aula, indiceAula) => {
+    const prefixo = `catalogo-devops:${String(indiceModulo + 1).padStart(2, "0")}:${String(indiceAula + 1).padStart(2, "0")}`;
+    const comuns = [
+      ["Qual é o resultado esperado desta unidade?", aula.objetivo],
+      ["Quais conceitos devem ser conectados nesta unidade?", aula.conceitos.join(", ") + "."],
+      ["Qual decisão técnica resolve o cenário apresentado?", aula.decisao],
+    ];
+    const praticos = aula.tipo === "material"
+      ? [
+          ["Qual é a entrega verificável do laboratório?", aula.entrega + "."],
+          ["Como comprovar que o laboratório foi concluído corretamente?", aula.validacao + "."],
+        ]
+      : [];
+    return [...comuns, ...praticos].map(([frente, verso], indiceCard) => ({
+      moduloTitulo: modulo.titulo,
+      aulaTitulo: aula.titulo,
+      trilhaSlug: "devops",
+      frente: `${aula.titulo}: ${frente}`,
+      verso,
+      chaveOrigem: `${prefixo}:${indiceCard + 1}`,
+    }));
+  }));
+
+module.exports = {
+  modulosDevOps,
+  flashcardsDevOps,
+  criarGuiaEstudoDevOps,
+  CONFIGURACAO_TRILHA_DEVOPS,
+};

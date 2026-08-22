@@ -19,6 +19,7 @@ const Aula = sequelize.define(
     ordem: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     transcricao_texto: { type: DataTypes.TEXT, allowNull: true },
     transcricao_gerada_em: { type: DataTypes.DATE, allowNull: true },
+    guia_estudo: { type: DataTypes.JSONB, allowNull: true },
     mapa_mental: { type: DataTypes.JSONB, allowNull: true },
     mapa_mental_fonte: { type: DataTypes.STRING(30), allowNull: true },
     mapa_mental_hash: { type: DataTypes.STRING(64), allowNull: true },

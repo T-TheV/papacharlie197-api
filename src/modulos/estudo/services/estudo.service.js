@@ -125,6 +125,7 @@ async function obterAula(aulaId, usuarioId, contexto) {
     planoEstudo,
     resumoTexto: aula.resumo_texto,
     transcricaoTexto: aula.transcricao_texto,
+    guiaEstudo: aula.guia_estudo,
     mapaMental,
     anexos: aula.anexos.map((anexo) => ({
       id: anexo.id,
