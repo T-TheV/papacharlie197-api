@@ -29,6 +29,10 @@ const {
   obterDiscursivaAcessivel,
 } = require("./acessoConteudo.service");
 const { montarPlanoAula } = require("./sessaoEstudo.service");
+const {
+  garantirMapaMentalBasico,
+  aprimorarMapaMental: aprimorarMapaMentalDaAula,
+} = require("./mapaMental.service");
 
 const RÓTULO_CARGO = {
   agente: "Agente de Polícia Civil",
@@ -90,6 +94,7 @@ async function obterAula(aulaId, usuarioId, contexto) {
 
   await registrarAtividadeDiaria(usuarioId);
   const planoEstudo = await montarPlanoAula(aula, contexto);
+  const mapaMental = await garantirMapaMentalBasico(aula);
 
   const respostasAnteriores = await RespostaDiscursiva.findAll({
     where: {
@@ -120,6 +125,7 @@ async function obterAula(aulaId, usuarioId, contexto) {
     planoEstudo,
     resumoTexto: aula.resumo_texto,
     transcricaoTexto: aula.transcricao_texto,
+    mapaMental,
     anexos: aula.anexos.map((anexo) => ({
       id: anexo.id,
       nome: anexo.nome_exibicao,
@@ -156,6 +162,10 @@ async function obterAula(aulaId, usuarioId, contexto) {
       };
     }),
   };
+}
+
+async function aprimorarMapaMental(aulaId, usuarioId, contexto) {
+  return aprimorarMapaMentalDaAula({ aulaId, usuarioId, contexto });
 }
 
 async function responderDiscursiva(usuarioId, questaoDiscursivaId, respostaTexto, contexto) {
@@ -639,6 +649,7 @@ async function obterMensagemDoDia(usuarioId, contexto) {
 module.exports = {
   listarModulosComProgresso,
   obterAula,
+  aprimorarMapaMental,
   listarRevisaoObrigatoria,
   responderDiscursiva,
   listarModulosComQuestoesBanco,

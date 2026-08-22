@@ -284,7 +284,7 @@ async function gerarQuestoesSimilares(questaoReferencia, quantidade = 2) {
 }
 
 function montarPromptTranscricao({ titulo, transcricaoBruta, quantidadeQuestoes, quantidadeDiscursivas }) {
-  return `Você recebeu a transcrição bruta (gerada automaticamente pelo YouTube, sem pontuação ou formatação) de um vídeo educativo sobre um tema de concurso público para a Polícia Civil do Rio Grande do Norte (Brasil). Sua tarefa tem quatro partes:
+  return `Você recebeu a transcrição bruta (gerada automaticamente pelo YouTube, sem pontuação ou formatação) de um vídeo educativo. Sua tarefa tem cinco partes:
 
 1. TRANSCRIÇÃO FORMATADA: reescreva a transcrição bruta abaixo em texto corrido, com pontuação, maiúsculas e parágrafos organizados. Isso é uma limpeza de formatação, NÃO um resumo — preserve tudo o que foi efetivamente dito no vídeo, sem cortar, resumir ou adicionar conteúdo que não estava na transcrição original.
 
@@ -298,6 +298,8 @@ ${quantidadeQuestoes > 1 ? `- Se houver mais de uma questão, cada uma deve test
 
 4. QUESTÕES DISCURSIVAS: crie ${quantidadeDiscursivas} enunciado(s) discursivo(s) (pede pro candidato explicar/discorrer sobre algo, não múltipla escolha), cada um exigindo desenvolver um conceito explicado no vídeo, com uma lista de 3 a 5 critérios de avaliação objetivos e verificáveis (o "gabarito" que outro corretor vai usar), cada um cobrindo um ponto específico realmente dito na transcrição. Não invente critérios sobre conteúdo que não foi abordado no vídeo.
 ${quantidadeDiscursivas > 1 ? `- Se houver mais de uma discursiva, cada uma deve abordar um tema diferente entre si, cobrindo pontos distintos da transcrição.` : ""}
+
+5. MAPA MENTAL: organize o conteúdo efetivamente explicado em 3 a 6 ramos. Cada ramo tem título específico e curto, resumo de uma frase e de 2 a 5 tópicos objetivos. Preserve a ordem lógica da aula, não repita ideias e não acrescente conhecimento externo.
 
 TÍTULO DA AULA: ${titulo}
 
@@ -315,7 +317,12 @@ Responda em JSON válido com exatamente estas chaves:
   ],
   "discursivas": [
     { "enunciado": "...", "criterios": ["critério 1", "critério 2", "critério 3"] }
-  ]
+  ],
+  "mapaMental": {
+    "titulo": "...",
+    "sintese": "...",
+    "ramos": [{ "titulo": "...", "resumo": "...", "topicos": ["...", "..."] }]
+  }
 }
 O array "questoes" deve ter exatamente ${quantidadeQuestoes} item(ns) e o array "discursivas" deve ter exatamente ${quantidadeDiscursivas} item(ns).`;
 }
@@ -352,6 +359,15 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
     },
     required: ["enunciado", "criterios"],
   };
+  const itemRamoMapa = {
+    type: "object",
+    properties: {
+      titulo: { type: "string" },
+      resumo: { type: "string" },
+      topicos: { type: "array", minItems: 2, maxItems: 5, items: { type: "string" } },
+    },
+    required: ["titulo", "resumo", "topicos"],
+  };
 
   const resposta = await fetchComTimeout(url, {
     method: "POST",
@@ -385,8 +401,17 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
               minItems: quantidadeDiscursivas,
               maxItems: quantidadeDiscursivas,
             },
+            mapaMental: {
+              type: "object",
+              properties: {
+                titulo: { type: "string" },
+                sintese: { type: "string" },
+                ramos: { type: "array", minItems: 3, maxItems: 6, items: itemRamoMapa },
+              },
+              required: ["titulo", "sintese", "ramos"],
+            },
           },
-          required: ["transcricaoFormatada", "resumo", "questoes", "discursivas"],
+          required: ["transcricaoFormatada", "resumo", "questoes", "discursivas", "mapaMental"],
         },
       },
     }),
@@ -434,7 +459,15 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
     ? parseado.discursivas.filter((d) => d && d.enunciado && Array.isArray(d.criterios) && d.criterios.length >= 2)
     : [];
 
-  if (!parseado.transcricaoFormatada || !parseado.resumo || questoesValidas.length === 0 || discursivasValidas.length === 0) {
+  if (
+    !parseado.transcricaoFormatada
+    || !parseado.resumo
+    || questoesValidas.length === 0
+    || discursivasValidas.length === 0
+    || !parseado.mapaMental?.titulo
+    || !Array.isArray(parseado.mapaMental?.ramos)
+    || parseado.mapaMental.ramos.length < 3
+  ) {
     const erro = new Error("A IA não retornou transcrição, resumo, questões e discursivas válidas.");
     erro.status = 502;
     throw erro;
@@ -469,6 +502,7 @@ async function gerarConteudoAulaComTranscricao({ titulo, transcricaoBruta, quant
       enunciado: d.enunciado,
       criteriosAvaliacao: d.criterios.map((c, i) => `${i + 1}) ${c}`).join(" "),
     })),
+    mapaMental: parseado.mapaMental,
   };
 }
 
@@ -671,6 +705,95 @@ Responda em JSON válido:
   return cards.map((card) => ({ frente: card.frente.trim(), verso: card.verso.trim() }));
 }
 
+async function gerarMapaMental({ titulo, resumo, transcricao, questoes = [], discursivas = [] }) {
+  if (!GEMINI_API_KEY) {
+    const erro = new Error("Geração do mapa mental indisponível: GEMINI_API_KEY não configurada.");
+    erro.status = 503;
+    throw erro;
+  }
+  const fonte = String(transcricao || resumo || "").trim().slice(0, 60000);
+  const atividades = [...questoes, ...discursivas]
+    .map((item) => `- ${String(item || "").trim()}`)
+    .filter((item) => item.length > 3)
+    .slice(0, 10)
+    .join("\n");
+  if (fonte.length < 50 && !atividades) {
+    const erro = new Error("A aula ainda não possui conteúdo suficiente para aprimorar o mapa mental.");
+    erro.status = 422;
+    throw erro;
+  }
+  const prompt = `Crie um mapa mental conciso para revisão da aula abaixo.
+
+Use SOMENTE o conteúdo fornecido. Não acrescente conhecimento externo, artigos, números, regras ou exemplos que não estejam no material. Organize o raciocínio explicado na aula em 3 a 6 ramos diferentes, seguindo quando possível a ordem da explicação. Cada ramo deve ter título curto, uma síntese e de 2 a 5 tópicos objetivos. Evite títulos genéricos como "Introdução" quando o conteúdo permitir um nome específico. Não repita a mesma informação em ramos diferentes.
+
+TÍTULO DA AULA: ${titulo}
+CONTEÚDO FALADO/RESUMIDO:
+"""
+${fonte}
+"""
+PONTOS COBRADOS NAS ATIVIDADES DA AULA:
+${atividades || "(não há atividades cadastradas)"}
+
+Responda em JSON válido conforme o esquema solicitado.`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent?key=${GEMINI_API_KEY}`;
+  const resposta = await fetchComTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.25,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            titulo: { type: "string" },
+            sintese: { type: "string" },
+            ramos: {
+              type: "array",
+              minItems: 3,
+              maxItems: 6,
+              items: {
+                type: "object",
+                properties: {
+                  titulo: { type: "string" },
+                  resumo: { type: "string" },
+                  topicos: { type: "array", minItems: 2, maxItems: 5, items: { type: "string" } },
+                },
+                required: ["titulo", "resumo", "topicos"],
+              },
+            },
+          },
+          required: ["titulo", "sintese", "ramos"],
+        },
+      },
+    }),
+  });
+  if (!resposta.ok) {
+    const detalhe = await resposta.text().catch(() => "");
+    const erro = new Error("Falha ao consultar a IA para gerar o mapa mental.");
+    erro.status = 502;
+    erro.detalhe = detalhe;
+    throw erro;
+  }
+  const corpo = await resposta.json();
+  const texto = corpo?.candidates?.[0]?.content?.parts?.[0]?.text;
+  let mapa;
+  try {
+    mapa = JSON.parse(texto);
+  } catch {
+    const erro = new Error("A IA retornou o mapa mental em formato inesperado.");
+    erro.status = 502;
+    throw erro;
+  }
+  if (!mapa?.titulo || !mapa?.sintese || !Array.isArray(mapa?.ramos) || mapa.ramos.length < 3) {
+    const erro = new Error("A IA não retornou uma estrutura válida para o mapa mental.");
+    erro.status = 502;
+    throw erro;
+  }
+  return mapa;
+}
+
 module.exports = {
   avaliarRespostaDiscursiva,
   gerarMensagemDoDia,
@@ -678,4 +801,5 @@ module.exports = {
   gerarConteudoAulaComTranscricao,
   gerarMissoes,
   gerarFlashcards,
+  gerarMapaMental,
 };

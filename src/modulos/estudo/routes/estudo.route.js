@@ -9,6 +9,7 @@ rotas.use(autenticar);
 rotas.get("/modulos", estudoController.listarModulos);
 rotas.get("/revisao", estudoController.listarRevisao);
 rotas.get("/aulas/:id", estudoController.obterAula);
+rotas.post("/aulas/:id/mapa-mental/aprimorar", estudoController.aprimorarMapaMental);
 rotas.get("/aulas/:id/sessoes/ativa", estudoController.obterSessaoAtiva);
 rotas.post("/aulas/:id/sessoes", estudoController.criarSessaoEstudo);
 rotas.patch("/aulas/:id/duracao-video", estudoController.registrarDuracaoVideo);

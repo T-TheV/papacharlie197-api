@@ -13,6 +13,7 @@ const Usuario = require("../../autenticacao/models/usuario.model");
 const AnexoAula = require("../../estudo/models/anexoAula.model");
 const fs = require("fs/promises");
 const path = require("path");
+const { normalizarMapaMental, hashConteudoAula } = require("../../estudo/services/mapaMental.util");
 
 function naoEncontrado(entidade) {
   const erro = new Error(`${entidade} não encontrado(a)`);
@@ -171,7 +172,7 @@ async function reconciliarRegistros(Modelo, existentes, novosDados, transaction)
 async function gerarConteudoDoVideo(aula) {
   const transcricaoBruta = await buscarTranscricaoBruta(aula.youtube_iframe_url);
   const { questoes: quantidadeQuestoes, discursivas: quantidadeDiscursivas } = determinarQuantidades(transcricaoBruta);
-  const { transcricaoFormatada, resumo, questoes, discursivas } = await gerarConteudoAulaComTranscricao({
+  const { transcricaoFormatada, resumo, questoes, discursivas, mapaMental } = await gerarConteudoAulaComTranscricao({
     titulo: aula.titulo,
     transcricaoBruta,
     quantidadeQuestoes,
@@ -183,6 +184,15 @@ async function gerarConteudoDoVideo(aula) {
       transcricao_texto: transcricaoFormatada,
       transcricao_gerada_em: new Date(),
       resumo_texto: resumo,
+      mapa_mental: normalizarMapaMental(mapaMental, aula.titulo),
+      mapa_mental_fonte: "ia",
+      mapa_mental_hash: hashConteudoAula({
+        titulo: aula.titulo,
+        resumoTexto: resumo,
+        transcricaoTexto: transcricaoFormatada,
+      }),
+      mapa_mental_gerado_em: new Date(),
+      mapa_mental_tentativa_em: new Date(),
     }, { transaction });
 
     const dadosQuestoes = questoes.map((questao) => ({

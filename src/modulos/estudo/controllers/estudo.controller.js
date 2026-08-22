@@ -20,6 +20,19 @@ async function obterAula(requisicao, resposta, proximo) {
   }
 }
 
+async function aprimorarMapaMental(requisicao, resposta, proximo) {
+  try {
+    const mapaMental = await estudoService.aprimorarMapaMental(
+      requisicao.params.id,
+      requisicao.usuario.id,
+      requisicao.contextoCurso,
+    );
+    resposta.json({ mapaMental });
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
 async function responderQuestao(requisicao, resposta, proximo) {
   try {
     const { alternativa } = requisicao.body || {};
@@ -271,6 +284,7 @@ async function registrarDuracaoVideo(requisicao, resposta, proximo) {
 module.exports = {
   listarModulos,
   obterAula,
+  aprimorarMapaMental,
   responderQuestao,
   alternarConclusaoAula,
   listarRevisao,
