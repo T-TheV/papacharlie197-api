@@ -592,10 +592,90 @@ async function gerarMissoes(dados) {
     .filter((m) => m.tipoMeta !== "concluir_aulas_modulo" || m.moduloId !== null);
 }
 
+async function gerarFlashcards({ titulo, resumo, transcricao, quantidade = 6 }) {
+  if (!GEMINI_API_KEY) {
+    const erro = new Error("Geração de flashcards indisponível: GEMINI_API_KEY não configurada.");
+    erro.status = 503;
+    throw erro;
+  }
+  const fonte = String(transcricao || resumo || "").trim().slice(0, 50000);
+  if (fonte.length < 80) {
+    const erro = new Error("A aula ainda não possui texto suficiente para gerar flashcards.");
+    erro.status = 422;
+    throw erro;
+  }
+  const limite = Math.max(3, Math.min(10, Math.round(Number(quantidade) || 6)));
+  const prompt = `Crie exatamente ${limite} flashcards de revisão para a aula abaixo.
+
+Use somente o conteúdo fornecido. Cada frente deve ser uma pergunta curta, específica e independente. Cada verso deve responder de modo direto em até 3 frases. Distribua os cartões por conceitos diferentes e não invente fatos.
+
+TÍTULO: ${titulo}
+CONTEÚDO:
+"""
+${fonte}
+"""
+
+Responda em JSON válido:
+{"flashcards":[{"frente":"...","verso":"..."}]}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent?key=${GEMINI_API_KEY}`;
+  const resposta = await fetchComTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.35,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            flashcards: {
+              type: "array",
+              minItems: limite,
+              maxItems: limite,
+              items: {
+                type: "object",
+                properties: { frente: { type: "string" }, verso: { type: "string" } },
+                required: ["frente", "verso"],
+              },
+            },
+          },
+          required: ["flashcards"],
+        },
+      },
+    }),
+  });
+  if (!resposta.ok) {
+    const erro = new Error("Falha ao consultar a IA para gerar flashcards.");
+    erro.status = 502;
+    throw erro;
+  }
+  const corpo = await resposta.json();
+  const texto = corpo?.candidates?.[0]?.content?.parts?.[0]?.text;
+  let parseado;
+  try {
+    parseado = JSON.parse(texto);
+  } catch {
+    const erro = new Error("A IA retornou flashcards em formato inesperado.");
+    erro.status = 502;
+    throw erro;
+  }
+  const cards = Array.isArray(parseado.flashcards)
+    ? parseado.flashcards.filter((card) => card?.frente?.trim() && card?.verso?.trim())
+    : [];
+  if (cards.length !== limite) {
+    const erro = new Error(`A IA retornou ${cards.length}/${limite} flashcards.`);
+    erro.status = 502;
+    throw erro;
+  }
+  return cards.map((card) => ({ frente: card.frente.trim(), verso: card.verso.trim() }));
+}
+
 module.exports = {
   avaliarRespostaDiscursiva,
   gerarMensagemDoDia,
   gerarQuestoesSimilares,
   gerarConteudoAulaComTranscricao,
   gerarMissoes,
+  gerarFlashcards,
 };

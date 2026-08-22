@@ -5,6 +5,7 @@ const rotasAdmin = require("../modulos/admin/routes/admin.route");
 const rotasProgresso = require("../modulos/progresso/routes/progresso.route");
 const rotasAmizade = require("../modulos/autenticacao/routes/amizade.route");
 const rotasCatalogo = require("../modulos/catalogo/routes/catalogo.route");
+const rotasAprendizagem = require("../modulos/aprendizagem/routes/aprendizagem.route");
 const { sequelize } = require("../config/configDB");
 
 const rotas = Router();
@@ -24,5 +25,6 @@ rotas.use("/admin", rotasAdmin);
 rotas.use("/progresso", rotasProgresso);
 rotas.use("/social", rotasAmizade);
 rotas.use("/catalogo", rotasCatalogo);
+rotas.use("/aprendizagem", rotasAprendizagem);
 
 module.exports = rotas;

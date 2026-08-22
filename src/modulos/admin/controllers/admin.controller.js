@@ -6,6 +6,7 @@ function dtoModulo(modulo) {
     titulo: modulo.titulo,
     corDestaque: modulo.cor_destaque,
     ordem: modulo.ordem,
+    pesoEdital: Number(modulo.peso_edital || 1),
     cargosAlvo: modulo.cargos_alvo,
     agenciaId: modulo.agencia_id,
     agenciaNome: modulo.agencia?.nome || null,
@@ -89,7 +90,7 @@ async function listarConteudo(requisicao, resposta, proximo) {
 
 async function criarModulo(requisicao, resposta, proximo) {
   try {
-    const { titulo, corDestaque, ordem, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
+    const { titulo, corDestaque, ordem, pesoEdital, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
     if (!titulo) return resposta.status(400).json({ erro: "Título é obrigatório" });
 
     const modulo = await adminService.criarModulo({
@@ -97,6 +98,7 @@ async function criarModulo(requisicao, resposta, proximo) {
       agencia_id: agenciaId || undefined,
       cor_destaque: corDestaque || "#F3C623",
       ordem: ordem ?? 0,
+      peso_edital: Math.max(0.01, Number(pesoEdital) || 1),
       cargos_alvo: Array.isArray(cargosAlvo) ? cargosAlvo : [],
     }, Array.isArray(trilhaIds) ? trilhaIds.map(Number) : []);
     resposta.status(201).json({ modulo: dtoModulo(modulo) });
@@ -107,11 +109,12 @@ async function criarModulo(requisicao, resposta, proximo) {
 
 async function atualizarModulo(requisicao, resposta, proximo) {
   try {
-    const { titulo, corDestaque, ordem, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
+    const { titulo, corDestaque, ordem, pesoEdital, agenciaId, trilhaIds, cargosAlvo } = requisicao.body || {};
     const modulo = await adminService.atualizarModulo(requisicao.params.id, {
       ...(titulo !== undefined && { titulo }),
       ...(corDestaque !== undefined && { cor_destaque: corDestaque }),
       ...(ordem !== undefined && { ordem }),
+      ...(pesoEdital !== undefined && { peso_edital: Math.max(0.01, Number(pesoEdital) || 1) }),
       ...(cargosAlvo !== undefined && { cargos_alvo: Array.isArray(cargosAlvo) ? cargosAlvo : [] }),
       ...(agenciaId !== undefined && { agencia_id: agenciaId }),
     }, trilhaIds === undefined ? undefined : Array.isArray(trilhaIds) ? trilhaIds.map(Number) : []);

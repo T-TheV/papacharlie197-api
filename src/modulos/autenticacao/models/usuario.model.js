@@ -52,6 +52,7 @@ const Usuario = sequelize.define(
     xp_inicio_semana: { type: DataTypes.INTEGER, allowNull: true },
     // 'YYYY-MM-DD' da segunda-feira da semana referente ao snapshot acima — se não bater com a semana atual, reseta.
     semana_referencia_xp: { type: DataTypes.STRING(10), allowNull: true },
+    configuracao_planejamento: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
   },
   {
     tableName: "usuarios",

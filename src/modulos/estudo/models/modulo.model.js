@@ -11,6 +11,7 @@ const Modulo = sequelize.define(
     ordem: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     // Array vazio = módulo aparece para todos os cargos.
     cargos_alvo: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: false, defaultValue: [] },
+    peso_edital: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 1 },
   },
   {
     tableName: "modulos",

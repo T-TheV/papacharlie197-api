@@ -22,6 +22,9 @@ const Simulado = require("../modulos/estudo/models/simulado.model");
 const SessaoEstudo = require("../modulos/estudo/models/sessaoEstudo.model");
 const RelatorioErro = require("../modulos/progresso/models/relatorioErro.model");
 const AnexoAula = require("../modulos/estudo/models/anexoAula.model");
+const Flashcard = require("../modulos/aprendizagem/models/flashcard.model");
+const RevisaoFlashcard = require("../modulos/aprendizagem/models/revisaoFlashcard.model");
+const ItemPlanoDiario = require("../modulos/aprendizagem/models/itemPlanoDiario.model");
 
 function configurarAssociacoes() {
   Agencia.hasMany(Trilha, { foreignKey: "agencia_id", as: "trilhas" });
@@ -139,6 +142,33 @@ function configurarAssociacoes() {
   RelatorioErro.belongsTo(Usuario, { foreignKey: "usuario_id", as: "usuario" });
   Aula.hasMany(RelatorioErro, { foreignKey: "aula_id", as: "relatoriosErro" });
   RelatorioErro.belongsTo(Aula, { foreignKey: "aula_id", as: "aula" });
+
+  Usuario.hasMany(Flashcard, { foreignKey: "usuario_id", as: "flashcards" });
+  Flashcard.belongsTo(Usuario, { foreignKey: "usuario_id", as: "usuario" });
+  Agencia.hasMany(Flashcard, { foreignKey: "agencia_id", as: "flashcards" });
+  Flashcard.belongsTo(Agencia, { foreignKey: "agencia_id", as: "agencia" });
+  Trilha.hasMany(Flashcard, { foreignKey: "trilha_id", as: "flashcards" });
+  Flashcard.belongsTo(Trilha, { foreignKey: "trilha_id", as: "trilha" });
+  Modulo.hasMany(Flashcard, { foreignKey: "modulo_id", as: "flashcards" });
+  Flashcard.belongsTo(Modulo, { foreignKey: "modulo_id", as: "modulo" });
+  Aula.hasMany(Flashcard, { foreignKey: "aula_id", as: "flashcards" });
+  Flashcard.belongsTo(Aula, { foreignKey: "aula_id", as: "aula" });
+
+  Usuario.hasMany(RevisaoFlashcard, { foreignKey: "usuario_id", as: "revisoesFlashcards" });
+  RevisaoFlashcard.belongsTo(Usuario, { foreignKey: "usuario_id", as: "usuario" });
+  Flashcard.hasMany(RevisaoFlashcard, { foreignKey: "flashcard_id", as: "revisoes" });
+  RevisaoFlashcard.belongsTo(Flashcard, { foreignKey: "flashcard_id", as: "flashcard" });
+
+  Usuario.hasMany(ItemPlanoDiario, { foreignKey: "usuario_id", as: "itensPlanoDiario" });
+  ItemPlanoDiario.belongsTo(Usuario, { foreignKey: "usuario_id", as: "usuario" });
+  Agencia.hasMany(ItemPlanoDiario, { foreignKey: "agencia_id", as: "itensPlanoDiario" });
+  ItemPlanoDiario.belongsTo(Agencia, { foreignKey: "agencia_id", as: "agencia" });
+  Trilha.hasMany(ItemPlanoDiario, { foreignKey: "trilha_id", as: "itensPlanoDiario" });
+  ItemPlanoDiario.belongsTo(Trilha, { foreignKey: "trilha_id", as: "trilha" });
+  Modulo.hasMany(ItemPlanoDiario, { foreignKey: "modulo_id", as: "itensPlanoDiario" });
+  ItemPlanoDiario.belongsTo(Modulo, { foreignKey: "modulo_id", as: "modulo" });
+  Aula.hasMany(ItemPlanoDiario, { foreignKey: "aula_id", as: "itensPlanoDiario" });
+  ItemPlanoDiario.belongsTo(Aula, { foreignKey: "aula_id", as: "aula" });
 }
 
 module.exports = configurarAssociacoes;
